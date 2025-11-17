@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang='en'>
+
+<head>
+  <meta http-equiv='content-type' content='text/html; charset=UTF-8' />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <title>Snoo's Adventure - Snoo's Platform Game</title>
+  <link href='./assets/style.css' rel='stylesheet' type='text/css'>
+  <link href='//fonts.googleapis.com/css?family=OFL+Sorts+Mill+Goudy+TT' rel='stylesheet' type='text/css' />
+  <script type='module' src='./src/init.js'></script>
+  <link rel="icon" type="image/png" sizes="192x192"  href="./favicons/android-icon-192x192.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./favicons/favicon-32x32.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="./favicons/favicon-96x96.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./favicons/favicon-16x16.png">
+  <link rel="manifest" href="./manifest.json">
+  <meta name="msapplication-TileColor" content="#ffffff">
+  <meta name="msapplication-TileImage" content="./favicons/ms-icon-144x144.png">
+  <meta name="theme-color" content="#ffffff">
+</head>
+
+<body
+  style="background-color:#688195; margin: 0; padding: 0; width: 100vw; min-height: 100vh; background-image: url(./images/background.png); -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none; -o-user-select: none; user-select: none; overflow: hidden scroll; min-height: 100vh; box-sizing: border-box; min-width: 100vw;">
+  <section
+    style="margin: 0; padding: 0; width: 100vw; min-height: 100vh; user-select: none; min-height: 100vh; display: flex; justify-content: center; align-items: center; box-sizing: border-box; min-height: 100vh; box-sizing: border-box; min-width: 100vw;">
+    <div id='main' class="at-top" style="min-height: 100vh; width: 100vw; max-width: 100vw; min-width: 100vw;">
+      <div class='container' style="min-height: 100vh; width: 100vw;">
+        <div class='wrapper'>
+        <img src='./images/header.png' class='header-image' alt='The reddit alien Snoo depicted in a plataform.' />
+      </div>
+          <div id='display'>
+            <h1><span class='title'>Snoo's Adventure</span></h1>
+            <canvas oncontextmenu='return false;' id='canvas' width='480' height='340'>The &lt;canvas&gt; tag is not
+              supported in your browser. I recommend using the latest version of Google Chrome to play this
+              game.</canvas>
+        </div>
+      </div>
+    </div>
+  </section>
+  <script>
+    try {
+      applyLoad();
+    } catch (e) {
+      console.error(e);
+    }
+    window.addEventListener('DOMContentLoaded', (event) => {
+      const f = (localStorage.clearItem || localStorage.removeItem).bind(localStorage);
+      window.onload = window.onresize = window.onwheel = window.onscroll = window.onpointermove = function () {
+        const main = document.getElementById('main');
+        if (!main) return;
+        if (window.scrollY <= 10) {
+          f('scrollPosition');
+        } else {
+          localStorage.setItem('scrollPosition', String(window.scrollY));
+        }
+      };
+      try {
+        applyLoad();
+      } catch (e) {
+        console.error(e);
+      }
+    });
+    window.onload = function () {
+      try {
+        applyLoad();
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    function applyLoad() {
+      const scrollPosStr = localStorage.getItem('scrollPosition');
+      if (!scrollPosStr) {
+        return false;
+      }
+      document.getElementById('main').classList.remove('at-top');
+      const t = parseInt(scrollPosStr, 10) || 0;
+      window.scrollTo(0, t);
+      return true;
+    };
+  </script>
+  <script src="./utils/liveWatcher.js"></script>
+</body>
+
+</html>
