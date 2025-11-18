@@ -2,21 +2,25 @@
 // Tracks all loaded .js and .css files, stores their content, periodically refetches them
 // and reloads the page when a change is detected.
 
-(function () {
+(function() {
   const DEBUG = false;
-  const CHECK_INTERVAL_MS = 3000; // default 3s, can be changed via window.__LIVE_WATCHER_INTERVAL_MS
+  const CHECK_INTERVAL_MS = 3000;
+  // default 3s, can be changed via window.__LIVE_WATCHER_INTERVAL_MS
   const RETRY_COUNT = 1;
 
   function log(...args) {
-    if (DEBUG) console.log('[liveWatcher]', ...args);
+    if (DEBUG)
+      console.log('[liveWatcher]', ...args);
   }
 
-  function now() { return new Date().toISOString(); }
+  function now() {
+    return new Date().toISOString();
+  }
 
   // Helper: normalize URL to absolute
   function absoluteUrl(url) {
     try {
-      return new URL(url, location.href).href;
+      return new URL(url,location.href).href;
     } catch (e) {
       log('absoluteUrl failed', url, e && e.message);
       return url;
@@ -30,38 +34,61 @@
     // scripts
     document.querySelectorAll('script[src]').forEach(s => {
       const src = s.getAttribute('src');
-      if (!src) return;
+      if (!src)
+        return;
       const url = absoluteUrl(src);
-      if (!url) return;
-      resources.push({ type: 'js', url, el: s });
-    });
+      if (!url)
+        return;
+      resources.push({
+        type: 'js',
+        url,
+        el: s
+      });
+    }
+    );
 
     // css
     document.querySelectorAll('link[rel~="stylesheet"]').forEach(l => {
       const href = l.getAttribute('href');
-      if (!href) return;
+      if (!href)
+        return;
       const url = absoluteUrl(href);
-      if (!url) return;
-      resources.push({ type: 'css', url, el: l });
-    });
+      if (!url)
+        return;
+      resources.push({
+        type: 'css',
+        url,
+        el: l
+      });
+    }
+    );
 
     return resources;
   }
 
   // Fetch text content with cache-busting
-  async function fetchText(url, tryNum = 0) {
+  async function fetchText(url, tryNum=0) {
     const cacheBust = `_livewatch=${Date.now()}`;
     const sep = url.includes('?') ? '&' : '?';
-    const busted = url + sep + cacheBust;
+    let busted = url + sep + cacheBust;
+    window.fetchLiveWatchCount = (window.fetchLiveWatchCount || 0) + 1;
+    if (window.fetchLiveWatchCount <= 8) {
+      busted += '&s='+window.innerWidth+'x'+window.innerHeight;
+    }
     try {
-      const resp = await fetch(busted, { cache: 'no-store', credentials: 'same-origin' });
-      if (!resp.ok) throw new Error('HTTP ' + resp.status);
+      const resp = await fetch(busted, {
+        cache: 'no-store',
+        credentials: 'same-origin'
+      });
+      if (!resp.ok)
+        throw new Error('HTTP ' + resp.status);
       const text = await resp.text();
       log('fetched', url, 'len=', text.length);
       return text;
     } catch (err) {
       log('fetch failed', url, 'try', tryNum, err && err.message);
-      if (tryNum < RETRY_COUNT) return fetchText(url, tryNum + 1);
+      if (tryNum < RETRY_COUNT)
+        return fetchText(url, tryNum + 1);
       return null;
     }
   }
@@ -79,15 +106,18 @@
   // Watcher state
   const storeKey = '__LIVE_WATCHER_STORE_v1';
   const store = {
-    files: {}, // url -> {type, url, hash, text, lastChecked}
+    files: {},
+    // url -> {type, url, hash, text, lastChecked}
   };
 
   function loadStore() {
     try {
       const raw = sessionStorage.getItem(storeKey);
-      if (!raw) return;
+      if (!raw)
+        return;
       const parsed = JSON.parse(raw);
-      if (parsed && parsed.files) Object.assign(store.files, parsed.files);
+      if (parsed && parsed.files)
+        Object.assign(store.files, parsed.files);
       log('store loaded', Object.keys(store.files).length, 'entries');
     } catch (e) {
       log('loadStore failed', e && e.message);
@@ -111,7 +141,13 @@
     // Add any new resources to store but don't overwrite existing content
     for (const r of resources) {
       if (!store.files[r.url]) {
-        store.files[r.url] = { type: r.type, url: r.url, hash: null, text: null, lastChecked: null };
+        store.files[r.url] = {
+          type: r.type,
+          url: r.url,
+          hash: null,
+          text: null,
+          lastChecked: null
+        };
       }
     }
 
@@ -137,7 +173,8 @@
     const entries = Object.values(store.files);
     for (const e of entries) {
       const txt = await fetchText(e.url);
-      if (txt == null) continue;
+      if (txt == null)
+        continue;
       const h = hashString(txt);
       if (e.hash && e.hash !== h) {
         log(now(), 'resource changed:', e.url, 'oldHash=', e.hash, 'newHash=', h);
@@ -183,25 +220,27 @@
         // For scripts, best action is a full page reload to preserve state simplicity
         log('JS changed — reloading page to apply', entry.url);
         // small delay to let logs flush
-  setTimeout(() => location.reload(), 80);
+        setTimeout( () => location.reload(), 80);
         return;
       }
 
       // default: reload page
       log('unknown type change — reload', entry.url);
-  setTimeout(() => location.reload(), 80);
+      setTimeout( () => location.reload(), 80);
     } catch (e) {
       log('tryReload failed', e && e.message);
-  setTimeout(() => location.reload(), 80);
+      setTimeout( () => location.reload(), 80);
     }
   }
 
   function startLoop() {
-  const interval = window['__LIVE_WATCHER_INTERVAL_MS'] || CHECK_INTERVAL_MS;
-    if (loopId) clearInterval(loopId);
-    loopId = setInterval(() => {
+    const interval = window['__LIVE_WATCHER_INTERVAL_MS'] || CHECK_INTERVAL_MS;
+    if (loopId)
+      clearInterval(loopId);
+    loopId = setInterval( () => {
       checkOnce().catch(err => log('checkOnce error', err && err.message));
-    }, interval);
+    }
+    , interval);
     log('watcher started, interval=', interval);
   }
 
@@ -209,13 +248,17 @@
   // attach to window in a safe way without TypeScript complaints
   try {
     window['__liveWatcher'] = window['__liveWatcher'] || {};
-  } catch (e) {
-    // ignore
+  } catch (e) {// ignore
   }
 
   window['__liveWatcher'] = Object.assign(window['__liveWatcher'] || {}, {
     start: startLoop,
-    stop: () => { if (loopId) clearInterval(loopId); loopId = null; },
+    stop: () => {
+      if (loopId)
+        clearInterval(loopId);
+      loopId = null;
+    }
+    ,
     getStore: () => JSON.parse(JSON.stringify(store)),
     fetchNow: checkOnce
   });
@@ -227,4 +270,5 @@
     setTimeout(init, 0);
   }
 
-})();
+}
+)();

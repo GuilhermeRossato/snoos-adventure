@@ -8,21 +8,17 @@
 }
 
 #main {
-  background-color: #F4DA80;
-  background-color: rgb(244, 218, 88);
   color: rgb(0, 0, 0);
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 14px;
   margin: 0;
   align-self: flex-start;
-  min-height: 730px;
 }
 
 .container {
   color: rgb(0, 0, 0);
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 14px;
-  padding: 0px 15px 0px 15px;
   margin: 0;
   padding: 0;
   min-width: 100vw;
@@ -31,20 +27,20 @@
   justify-content: flex-start;
   align-items: center;
   gap: 1rem;
-  margin-top: 5vw;
+  margin-top: 32vw;
 }
 
-.wrapper {
+.image-wrapper {
   color: rgb(0, 0, 0);
-  display: block;
+  display: flex;
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 14px;
-  height: 328px;
-  margin: 0 0 40px 0;
-  padding: 40px 0 0 0;
   text-align: center;
-  width: 100%;
-  min-height: 25vh;
+  width: 100vw;
+  position: absolute;
+  top: 0;
+  left: 0;
+  justify-content: center;
 }
 
 #display {
@@ -54,7 +50,16 @@
   font-size: 14px;
   height: auto;
   text-align: center;
-  width: auto;
+  width: 90vw;
+  padding: 10px;
+  background-color: rgb(244 218 88 / 40%);
+  max-width: 85vw;
+}
+
+.display-content {
+  padding: 10px 10px 10px 10px;
+  border: 10px solid rgb(244 218 88 / 60%);
+  background-color: #f4da58;
 }
 
 span.title {
@@ -62,7 +67,7 @@ span.title {
   cursor: auto;
   display: inline;
   font-family: 'OFL Sorts Mill Goudy TT', Georgia, serif;
-  font-size: 35px;
+  font-size: 1vw;
   font-weight: bold;
   height: auto;
   text-align: center;
@@ -72,24 +77,18 @@ span.title {
   user-select: text;
 }
 
-img {
-  width: 116vw;
+img.header-image {
+  width: 118vw;
   max-width: 1800px;
   margin: 0;
   user-select: none;
-  margin-bottom: calc(200px - 50vh);
+  transition: 0.5s margin ease-in-out;
 }
 
 @media only screen and (max-width: 600px) {
-  .container {
-    width: 100vw;
-    margin-top: 5vw;
-  }
-
-  img {
-    width: 130vw;
-    margin-bottom: calc(50px - 30vh);
-  }
+span.title {
+  font-size: 1.6rem;
+}
 
 }
 
@@ -98,22 +97,21 @@ h1 {
   font-family: 'OFL Sorts Mill Goudy TT', Georgia, serif;
   font-size: 35px;
   font-weight: normal;
-  height: 40px;
-  margin: 215px 0 25px 0;
   padding: 0 0 0 0;
   text-align: center;
   width: 100%;
-  z-index: 2;
+  margin: 0;
 }
 
 canvas {
+  width: 100%;
+  box-sizing: border-box;
   margin-top: 0px;
   padding: 0;
   border: 6px solid #688195;
   cursor: default;
   background-color: rgb(106,166,110);
   background-image: url("../images/green.png");
-  scale: 1;
   image-rendering: pixelated;
 }
 

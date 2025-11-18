@@ -82,7 +82,7 @@ export function drawHTML5(ctx, x, y, scale, perc)/* (180,255) */ {
   ctx.lineTo(92, 239);
   ctx.fill();
 
-  ctx.fillStyle = "#FFFFFF";
+  ctx.fillStyle = "#688195";
   ctx.beginPath();
   ctx.moveTo(91, 88);
   ctx.lineTo(147, 88);
