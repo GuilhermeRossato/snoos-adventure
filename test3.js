@@ -622,79 +622,110 @@ async function init() {
         return;
       }
       gl.clear(gl.COLOR_BUFFER_BIT);
-      console.log('frame: begin', 'sprites:', 'dtMs:', dtMs.toFixed(2));
-
-      const cw = canvas.width;
-      const ch = canvas.height;
-      for (let b = 0; b < batches.length; b++) {
-        const batch = batches[b];
-        const velocities = batchVelocities[b];
-        const sprites = batch._sprites;
-        if (!batch || !velocities || !sprites) {
-          console.log('frame: missing batch/velocities/sprites', 'batchIdx:', b,
-        'batch:', !!batch, 'velocities:', !!velocities, 'sprites:', !!sprites);
-          continue;
-        }
-        for (let i = 0; i < sprites.length; i++) {
-          const spr = sprites[i];
-          if (!spr) {
-        console.log('frame: missing sprite', 'batchIdx:', b, 'spriteIdx:', i);
-        continue;
-          }
-          const vel = velocities[i];
-          if (!vel) {
-        console.log('frame: missing velocity', 'batchIdx:', b, 'spriteIdx:', i);
-        continue;
-          }
-
-          // Integrate
-          let newX = spr.dstX + vel.vx * dt;
-          let newY = spr.dstY + vel.vy * dt;
-
-          // Bounce X
-          if (newX < 0) {
-        newX = 0;
-        vel.vx = Math.abs(vel.vx);
-        console.log('frame:bounceX:left', 'batchIdx:', b, 'spriteIdx:', i, 'newX:', newX, 'vx:', vel.vx.toFixed(2));
-          } else if (newX + spr.dstW > cw) {
-        newX = cw - spr.dstW;
-        vel.vx = -Math.abs(vel.vx);
-        console.log('frame:bounceX:right', 'batchIdx:', b, 'spriteIdx:', i, 'newX:', newX, 'vx:', vel.vx.toFixed(2));
-          } else {
-        console.log('frame:noBounceX', 'batchIdx:', b, 'spriteIdx:', i, 'newX:', newX.toFixed(2));
-          }
-
-          // Bounce Y
-          if (newY < 0) {
-        newY = 0;
-        vel.vy = Math.abs(vel.vy);
-        console.log('frame:bounceY:top', 'batchIdx:', b, 'spriteIdx:', i, 'newY:', newY, 'vy:', vel.vy.toFixed(2));
-          } else if (newY + spr.dstH > ch) {
-        newY = ch - spr.dstH;
-        vel.vy = -Math.abs(vel.vy);
-        console.log('frame:bounceY:bottom', 'batchIdx:', b, 'spriteIdx:', i, 'newY:', newY, 'vy:', vel.vy.toFixed(2));
-          } else {
-        console.log('frame:noBounceY', 'batchIdx:', b, 'spriteIdx:', i, 'newY:', newY.toFixed(2));
-          }
-
-          // Commit once and mark dirty
-          spr.dstX = newX;
-          spr.dstY = newY;
-          batch.updateSprite(i);
-
-          console.log('frame:update', 'batchIdx:', b, 'spriteIdx:', i, 'dstX:', spr.dstX.toFixed(2), 'dstY:', spr.dstY.toFixed(2),
-        'vx:', vel.vx.toFixed(2), 'vy:', vel.vy.toFixed(2));
-        }
-        batch.render();
-        console.log('frame: rendered', 'batchIdx:', b, 'verts:', batch.spriteCount * 6);
-      }
- requestAnimationFrame(frame);
-    }
-    requestAnimationFrame(frame);
-    console.log('gameLoopSetup: started');
-  }
-
-  gameLoopSetup();
-  console.log('init: completed');
-  return true;
-}
+      console.log('frame: begin', 'batches:', batches.length, 'dtMs:', dtMs.toFixed(2));
+ 
+       const cw = canvas.width;
+       const ch = canvas.height;
+-
+-      for (let i = 0; i < sprites.length; i++) {
+-        const spr = sprites[i];
+-        if (!spr) {
+-          console.log('frame: missing sprite', 'index:', i);
+-          continue;
+-        }
+-        const vel = velocities[i];
+-        if (!vel) {
+-          console.log('frame: missing velocity', 'index:', i);
+-          continue;
+-        }
+-
+-        // Integrate
+-        let newX = spr.dstX + vel.vx * dt;
+-        let newY = spr.dstY + vel.vy * dt;
+-
+-        // Bounce X
+-        if (newX < 0) {
+-          newX = 0;
+-          vel.vx = Math.abs(vel.vx);
+-          console.log('frame:bounceX:left', 'i:', i, 'newX:', newX, 'vx:', vel.vx.toFixed(2));
+-        } else if (newX + spr.dstW > cw) {
+-          newX = cw - spr.dstW;
+-          vel.vx = -Math.abs(vel.vx);
+-          console.log('frame:bounceX:right', 'i:', i, 'newX:', newX, 'vx:', vel.vx.toFixed(2));
+-        } else {
+-          console.log('frame:noBounceX', 'i:', i, 'newX:', newX.toFixed(2));
+-        }
+-
+-        // Bounce Y
+-        if (newY < 0) {
+-          newY = 0;
+-          vel.vy = Math.abs(vel.vy);
+-          console.log('frame:bounceY:top', 'i:', i, 'newY:', newY, 'vy:', vel.vy.toFixed(2));
+-        } else if (newY + spr.dstH > ch) {
+-          newY = ch - spr.dstH;
+-          vel.vy = -Math.abs(vel.vy);
+-          console.log('frame:bounceY:bottom', 'i:', i, 'newY:', newY, 'vy:', vel.vy.toFixed(2));
+-        } else {
+-          console.log('frame:noBounceY', 'i:', i, 'newY:', newY.toFixed(2));
+-        }
+-
+-        // Commit once and mark dirty
+-        spr.dstX = newX;
+-        spr.dstY = newY;
+-        batch.updateSprite(i);
+-
+-        console.log('frame:update', 'i:', i, 'dstX:', spr.dstX.toFixed(2), 'dstY:', spr.dstY.toFixed(2),
+-          'vx:', vel.vx.toFixed(2), 'vy:', vel.vy.toFixed(2));
+-      }
+-
+-      batch.render();
+-      console.log('frame: rendered', 'verts:', batch.spriteCount * 6);
++      // Update every batch's sprites then render each batch
++      for (let b = 0; b < batches.length; b++) {
++        const batch = batches[b];
++        const vels = batchVelocities[b] || [];
++        for (let i = 0; i < batch.spriteCount; i++) {
++          const spr = batch._sprites[i];
++          if (!spr) {
++            console.log('frame: missing sprite in batch', 'batch:', b, 'index:', i);
++            continue;
++          }
++          const vel = vels[i];
++          if (!vel) {
++            console.log('frame: missing velocity in batch', 'batch:', b, 'index:', i);
++            continue;
++          }
++          let newX = spr.dstX + vel.vx * dt;
++          let newY = spr.dstY + vel.vy * dt;
++          if (newX < 0) {
++            newX = 0;
++            vel.vx = Math.abs(vel.vx);
++          } else if (newX + spr.dstW > cw) {
++            newX = cw - spr.dstW;
++            vel.vx = -Math.abs(vel.vx);
++          }
++          if (newY < 0) {
++            newY = 0;
++            vel.vy = Math.abs(vel.vy);
++          } else if (newY + spr.dstH > ch) {
++            newY = ch - spr.dstH;
++            vel.vy = -Math.abs(vel.vy);
++          }
++          spr.dstX = newX;
++          spr.dstY = newY;
++          batch.updateSprite(i);
++        }
++        batch.render();
++        console.log('frame: rendered batch', 'batch:', b, 'sprites:', batch.spriteCount, 'verts:', batch.spriteCount * 6);
++      }
+ 
+       requestAnimationFrame(frame);
+     }
+     requestAnimationFrame(frame);
+     console.log('gameLoopSetup: started');
+   }
+ 
+   gameLoopSetup();
+   console.log('init: completed');
+   return true;
+ }
