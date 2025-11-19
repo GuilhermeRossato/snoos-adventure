@@ -1,13 +1,13 @@
 <!DOCTYPE html>
-<html lang='en'>
+<html lang="en">
 
 <head>
-  <meta http-equiv='content-type' content='text/html; charset=UTF-8' />
+  <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>Snoo's Adventure - Snoo's Platform Game</title>
-  <link href='./assets/style.css' rel='stylesheet' type='text/css'>
-  <!-- <link href='//fonts.googleapis.com/css?family=OFL+Sorts+Mill+Goudy+TT' rel='stylesheet' type='text/css' /> -->
-  <script type='module' src='./src/init.js'></script>
+  <title>Snoo"s Adventure - Snoo"s Platform Game</title>
+  <link href="./assets/style.css" rel="stylesheet" type="text/css">
+  <!-- <link href="//fonts.googleapis.com/css?family=OFL+Sorts+Mill+Goudy+TT" rel="stylesheet" type="text/css" /> -->
+  <script type="module" async defer src="./src/init.js"></script>
   <link rel="icon" type="image/png" sizes="192x192" href="./favicons/android-icon-192x192.png">
   <link rel="icon" type="image/png" sizes="32x32" href="./favicons/favicon-32x32.png">
   <link rel="icon" type="image/png" sizes="96x96" href="./favicons/favicon-96x96.png">
@@ -19,51 +19,85 @@
 </head>
 
 <body
-  style="background-color:#688195; margin: 0; padding: 0; width: 100vw; min-height: 100vh; background-image: url(./images/background.png); -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none; -o-user-select: none; user-select: none; overflow: hidden scroll; min-height: 100vh; box-sizing: border-box; min-width: 100vw;">
-  <section
-    style="margin: 0; padding: 0; width: 100vw; min-height: 100vh; user-select: none; min-height: 100vh; display: flex; justify-content: center; align-items: center; box-sizing: border-box; min-height: 100vh; box-sizing: border-box; min-width: 100vw;">
-    <div id='main' class="at-top main" style="min-height: 100vh; width: 100vw; max-width: 100vw; min-width: 100vw;">
-      <div class='image-wrapper'>
-              <img src='./images/header.png' class='header-image' alt='The reddit alien Snoo depicted in a plataform.'
-                ondblclick="try { localStorage.clear(); sessionStorage.clear(); console.log('Double click: cleared localStorage and sessionStorage'); document.write('resetting...'); setTimeout(() => { location.reload(true); }, 1000); } catch(e) { console.error('Double click error:', e); }"
-                ontouchend="if (window._dblTouchTimeout) { try { localStorage.clear(); sessionStorage.clear(); console.log('Double touch: cleared localStorage and sessionStorage'); document.write('resetting...'); setTimeout(() => { location.reload(true); }, 1000); } catch(e) { console.error('Double touch error:', e); } window._dblTouchTimeout = null; } else { window._dblTouchTimeout = setTimeout(function(){ window._dblTouchTimeout = null; }, 300); }"
-              />
-            </div>
-      <div class='container' style="min-height: 100vh; width: 100vw;">
-        <div id='display'>
-          <div class="display-content">
-            <h1><span class='title'>Snoo's Adventure</span></h1>
-            <canvas oncontextmenu='return false;' id='canvas' width='480' height='480'>The &lt;canvas&gt; tag is not
+  style="margin: 0; padding: 0; width: 100vw; overflow: hidden scroll; min-height: 100vh; box-sizing: border-box; min-width: 100vw;background-color:#688195; background-image: url(./images/background.png);">
+  <div id="main" class="at-top" style="min-height: 100vh; width: 100vw; max-width: 100vw; min-width: 100vw;">
+    <div class="image-spacer" style="min-height: calc(25vw + 10px);">
+      <div class="image-wrapper"
+        style="display: flex;  width: 100vw;  position: absolute;  top: -10px;  left: 0;  justify-content: center;">
+        <img src="./images/header.png" class="header-image" alt="The reddit alien Snoo depicted in a plataform."
+          ondblclick="try { localStorage.clear(); sessionStorage.clear(); console.log('Double click: cleared localStorage and sessionStorage'); document.write('resetting...'); setTimeout(() => { location.reload(true); }, 1000); } catch(e) { console.error('Double click error:', e); }"
+          ontouchend="if (window._dblTouchTimeout) { try { localStorage.clear(); sessionStorage.clear(); console.log('Double touch: cleared localStorage and sessionStorage'); document.write('resetting...'); setTimeout(() => { location.reload(true); }, 1000); } catch(e) { console.error('Double touch error:', e); } window._dblTouchTimeout = null; } else { window._dblTouchTimeout = setTimeout(function(){ window._dblTouchTimeout = null; }, 300); }" />
+      </div>
+    </div>
+    <div class="container-wrapper">
+      <div class="container yellow-bg-light">
+        <div class="content yellow-bg">
+          <h1 style="height: calc(4.17vw + 30px); padding: 0 0 1rem 0;">
+            <span class="title">Snoo's Adventure</span>
+          </h1>
+          <div class="canvas-wrapper">
+            <canvas oncontextmenu="return false;" id="canvas" width="480" height="480"
+              style="width: 100%; max-width: min(min(70vw, 70vh), 960px); box-sizing: border-box;">The &lt;canvas
+              &gt;tag is not
               supported in your browser. I recommend using the latest version of Google Chrome to play this
               game.</canvas>
+
+          </div>
+          <div class="middle-wrapper disabled">
+            <div class="middle-content">
+            </div>
+          </div>
+          <div class="footer-wrapper">
+            <div class="footer-content">
+              <h2>About This Game</h2>
+              <p>This is a platform game featuring Snoo, the Reddit mascot. Use the arrow keys or WASD to move Snoo
+                around
+                the levels, collect items, and avoid obstacles. Double-tap or double-click the header image to reset
+                your
+                progress.</p>
+              <h2>Controls</h2>
+              <ul>
+                <li><strong>Move Left:</strong> Left Arrow or 'A'</li>
+                <li><strong>Move Right:</strong> Right Arrow or 'D'</li>
+                <li><strong>Jump:</strong> Up Arrow or 'W' or Spacebar</li>
+                <li><strong>Reset Progress:</strong> Double-tap or double-click the header image</li>
+              </ul>
+              <h2>Enjoy the Game!</h2>
+              <p>Have fun playing Snoo's Adventure! If you encounter any issues, please try refreshing the page or
+                clearing
+                your browser's cache.</p>
+            </div>
           </div>
         </div>
       </div>
     </div>
-  </section>
+  </div>
   <script>
     try {
       applyLoad();
     } catch (e) {
       console.error(e);
     }
-    window.addEventListener('DOMContentLoaded', (event) => {
+    window.addEventListener("DOMContentLoaded", (event) => {
       const f = (localStorage.clearItem || localStorage.removeItem).bind(localStorage);
       window.onload = window.onresize = window.onwheel = window.onscroll = window.onpointermove = function () {
-        const main = document.getElementById('main');
-        if (!main) return;
+        const main = document.getElementById("main");
+        if (!main)
+          return;
         if (window.scrollY <= 10) {
-          f('scrollPosition');
+          f("scrollPosition");
         } else {
-          localStorage.setItem('scrollPosition', String(window.scrollY));
+          localStorage.setItem("scrollPosition", String(window.scrollY));
         }
-      };
+      }
+        ;
       try {
         applyLoad();
       } catch (e) {
         console.error(e);
       }
-    });
+    }
+    );
     window.onload = function () {
       try {
         applyLoad();
@@ -72,17 +106,18 @@
       }
     }
     function applyLoad() {
-      const scrollPosStr = localStorage.getItem('scrollPosition');
+      const scrollPosStr = localStorage.getItem("scrollPosition");
       if (!scrollPosStr) {
         return false;
       }
-      document.getElementById('main').classList.remove('at-top');
+      document.getElementById("main").classList.remove("at-top");
       const t = parseInt(scrollPosStr, 10) || 0;
       window.scrollTo(0, t);
       return true;
-    };
+    }
   </script>
   <script src="./utils/liveWatcher.js"></script>
+  <script src="./src/load.js"></script>
 </body>
 
 </html>

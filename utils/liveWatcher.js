@@ -2,12 +2,7 @@
 // Tracks all loaded .js and .css files, stores their content, periodically refetches them
 // and reloads the page when a change is detected.
 
-(function() {
-  const DEBUG = false;
-  const CHECK_INTERVAL_MS = 3000;
-  // default 3s, can be changed via window.__LIVE_WATCHER_INTERVAL_MS
-  const RETRY_COUNT = 1;
-
+(function () {
   function log(...args) {
     if (DEBUG)
       console.log('[liveWatcher]', ...args);
@@ -17,10 +12,51 @@
     return new Date().toISOString();
   }
 
+  const DEBUG = false;
+  const CHECK_INTERVAL_MS = 3000;
+  // default 3s, can be changed via window.__LIVE_WATCHER_INTERVAL_MS
+  const RETRY_COUNT = 1;
+
+  const handleKey = (event) => {
+    if (event.key === 'Escape') {
+      if (!window['__lastEscapeTime']) {
+        window['__lastEscapeTime'] = [];
+      }
+      window['__lastEscapeTime'].push(Date.now());
+      if (window['__lastEscapeTime'].length > 6) {
+        window['__lastEscapeTime'].shift();
+      }
+      if (window['__lastEscapeTime'].length >= 5) {
+        const close = window['__lastEscapeTime'].map((t, i, a) => i === 0 ? 0 : Math.abs(a[i - 1] - t) < 500);
+        console.log(close);
+        if (close.length >= 5) {
+          window['__lastEscapeTime'] = [];
+          log('Escape pressed 5 times quickly');
+          const dis = sessionStorage.getItem('__live_watcher_disabled') || "";
+          if (!dis || dis === "0") {
+            sessionStorage.setItem('__live_watcher_disabled', "1");
+            log('Live Watcher disabled in sessionStorage');
+            window.location.reload();
+          } else {
+            log('Live Watcher enabled in sessionStorage');
+            sessionStorage.removeItem('__live_watcher_disabled');
+          }
+
+        }
+      }
+    };
+  };
+  window.addEventListener('keyup', handleKey);
+
+  if (sessionStorage.getItem('__live_watcher_disabled') === "1") {
+    console.log('Live Watcher is disabled via sessionStorage');
+    return;
+  }
+
   // Helper: normalize URL to absolute
   function absoluteUrl(url) {
     try {
-      return new URL(url,location.href).href;
+      return new URL(url, location.href).href;
     } catch (e) {
       log('absoluteUrl failed', url, e && e.message);
       return url;
@@ -67,13 +103,13 @@
   }
 
   // Fetch text content with cache-busting
-  async function fetchText(url, tryNum=0) {
+  async function fetchText(url, tryNum = 0) {
     const cacheBust = `_livewatch=${Date.now()}`;
     const sep = url.includes('?') ? '&' : '?';
     let busted = url + sep + cacheBust;
     window.fetchLiveWatchCount = (window.fetchLiveWatchCount || 0) + 1;
     if (window.fetchLiveWatchCount <= 8) {
-      busted += '&s='+window.innerWidth+'x'+window.innerHeight;
+      busted += '&s=' + window.innerWidth + 'x' + window.innerHeight;
     }
     try {
       const resp = await fetch(busted, {
@@ -220,16 +256,16 @@
         // For scripts, best action is a full page reload to preserve state simplicity
         log('JS changed — reloading page to apply', entry.url);
         // small delay to let logs flush
-        setTimeout( () => location.reload(), 80);
+        setTimeout(() => location.reload(), 80);
         return;
       }
 
       // default: reload page
       log('unknown type change — reload', entry.url);
-      setTimeout( () => location.reload(), 80);
+      setTimeout(() => location.reload(), 80);
     } catch (e) {
       log('tryReload failed', e && e.message);
-      setTimeout( () => location.reload(), 80);
+      setTimeout(() => location.reload(), 80);
     }
   }
 
@@ -237,10 +273,10 @@
     const interval = window['__LIVE_WATCHER_INTERVAL_MS'] || CHECK_INTERVAL_MS;
     if (loopId)
       clearInterval(loopId);
-    loopId = setInterval( () => {
+    loopId = setInterval(() => {
       checkOnce().catch(err => log('checkOnce error', err && err.message));
     }
-    , interval);
+      , interval);
     log('watcher started, interval=', interval);
   }
 

@@ -6,57 +6,69 @@
   src: url(./oflsortsmillgoudytt.woff2) format('woff2');
   unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
 }
-
-#main {
+.footer-content {
+  max-width: 100%;
+}
+.footer-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 10px 20px;
   color: rgb(0, 0, 0);
-  font-family: Georgia, 'Times New Roman', serif;
+  font-family: 'OFL Sorts Mill Goudy TT', Georgia, 'Times New Roman', serif;
   font-size: 14px;
+}
+.footer-wrapper h2, .footer-wrapper p, .footer-wrapper strong, .footer-wrapper li {
+  text-align: justify;
+  font-family: 'OFL Sorts Mill Goudy TT', Georgia, 'Times New Roman', serif;
+  font-size: 14px;
+}
+#main {
   margin: 0;
-  align-self: flex-start;
 }
 
-.container {
-  color: rgb(0, 0, 0);
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 14px;
+.image-wrapper {
+  display: flex;
+  width: 100vw;
+  position: absolute;
+  top: -10px;
+  left: 0;
+  justify-content: center;
+}
+
+.image-spacer {
+}
+
+.container-wrapper {
   margin: 0;
   padding: 0;
   min-width: 100vw;
   flex-direction: column;
   display: flex;
-  justify-content: flex-start;
+  justify-content: center;
   align-items: center;
   gap: 1rem;
-  margin-top: 32vw;
 }
 
-.image-wrapper {
-  color: rgb(0, 0, 0);
-  display: flex;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 14px;
-  text-align: center;
-  width: 100vw;
-  position: absolute;
-  top: 0;
-  left: 0;
-  justify-content: center;
-}
-
-#display {
-  cursor: auto;
+.container {
   display: inline;
-  font-family: Georgia, 'Times New Roman', serif;
-  font-size: 14px;
-  height: auto;
   text-align: center;
-  width: 90vw;
+  width: 85vw;
+  max-width: 800px;
   padding: 10px;
-  background-color: rgb(244 218 88 / 40%);
-  max-width: 85vw;
+  box-sizing: border-box;
+  margin-bottom: 15vw;
 }
 
-.display-content {
+.yellow-bg-light {
+  background-color: rgb(244 218 88 / 40%);
+}
+
+.yellow-bg {
+  background-color: #f4da58;
+}
+
+.content {
   padding: 10px 10px 10px 10px;
   border: 10px solid rgb(244 218 88 / 60%);
   background-color: #f4da58;
@@ -67,7 +79,7 @@ span.title {
   cursor: auto;
   display: inline;
   font-family: 'OFL Sorts Mill Goudy TT', Georgia, serif;
-  font-size: 1vw;
+  font-size: min(calc(3vw + 12px), 48px);
   font-weight: bold;
   height: auto;
   text-align: center;
@@ -82,37 +94,64 @@ img.header-image {
   max-width: 1800px;
   margin: 0;
   user-select: none;
-  transition: 0.5s margin ease-in-out;
-}
-
-@media only screen and (max-width: 600px) {
-span.title {
-  font-size: 1.6rem;
-}
-
+  transition: 0.9s margin ease-in-out;
 }
 
 h1 {
   display: block;
   font-family: 'OFL Sorts Mill Goudy TT', Georgia, serif;
-  font-size: 35px;
   font-weight: normal;
-  padding: 0 0 0 0;
   text-align: center;
   width: 100%;
   margin: 0;
+  height: calc(5.17vw + 16px);
 }
 
 canvas {
   width: 100%;
+  max-width: min(min(70vw, 70vh), 960px);
   box-sizing: border-box;
   margin-top: 0px;
   padding: 0;
   border: 6px solid #688195;
   cursor: default;
-  background-color: rgb(106,166,110);
+  background-color: rgb(106, 166, 110);
   background-image: url("../images/green.png");
   image-rendering: pixelated;
+}
+.middle-wrapper {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  width: 100vw;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 9999;
+}
+.middle-wrapper.disabled {
+  display: none;
+}
+.middle-wrapper.displayed {
+  display: flex;
+}
+.middle-content {
+  width: 85vw;
+  background-color: rgba(0, 0, 0, 0.5);
+  max-width: min(min(70vw, 70vh), 960px);
+  aspect-ratio: 1 / 1;
+  border: 1px solid red;
+}
+@media screen and (max-width: 600px) {
+  .container {
+    width: 92vw;
+    margin-bottom: 4vw;
+  }
+
+  canvas {
+    max-width: min(min(80vw, 80vh), 960px);
+  }
 }
 
 .holder {
