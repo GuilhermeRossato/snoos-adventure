@@ -48,3 +48,11 @@ export function ib(i, j, k) {
   return (k - i) / (j - i);
 }
 
+
+
+export function ibc(i, j, k) {
+  if (k < i || j === i) { return 0; }
+  if (k > j) { return 1; }
+  return (k - i) / (j - i);
+}
+

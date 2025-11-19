@@ -1,5 +1,8 @@
 {
   "name": "SnoosAdventure",
+  "theme_color": "#587185",
+  "background_color": "#688195",
+  "display": "standalone",
   "icons": [
     {
       "src": "\/android-icon-36x36.png",

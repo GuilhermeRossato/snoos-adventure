@@ -211,10 +211,10 @@ export const keys = {
       return;
     }
     if (shift === undefined) {
-      shift = this.states['shift'];
+      shift = key === 'shift' ? down : this.states['shift'];
     }
     if (ctrl === undefined) {
-      ctrl = this.states['ctrl'];
+      ctrl = key === 'ctrl' ? down : this.states['ctrl'];
     }
     if (time === undefined) {
       time = Date.now();
@@ -414,6 +414,10 @@ window.addEventListener('mousedown', handleMouseButton);
 window.addEventListener('mouseup', handleMouseButton);
 
 window.addEventListener('mousemove', (ev) => {
+  keys.emitMouseMove(ev);
+});
+
+document.addEventListener('mousemove', (ev) => {
   keys.emitMouseMove(ev);
 });
 

@@ -6,7 +6,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
   <title>Snoo"s Adventure - Snoo"s Platform Game</title>
   <link href="./assets/style.css" rel="stylesheet" type="text/css">
-  <!-- <link href="//fonts.googleapis.com/css?family=OFL+Sorts+Mill+Goudy+TT" rel="stylesheet" type="text/css" /> -->
   <script type="module" async defer src="./src/init.js"></script>
   <link rel="icon" type="image/png" sizes="192x192" href="./favicons/android-icon-192x192.png">
   <link rel="icon" type="image/png" sizes="32x32" href="./favicons/favicon-32x32.png">
@@ -23,7 +22,7 @@
   <div id="main" class="at-top" style="min-height: 100vh; width: 100vw; max-width: 100vw; min-width: 100vw;">
     <div class="image-spacer" style="min-height: calc(25vw + 10px);">
       <div class="image-wrapper"
-        style="display: flex;  width: 100vw;  position: absolute;  top: -10px;  left: 0;  justify-content: center;">
+        style="display: flex; width: 100vw; position: absolute; left: 0; justify-content: center;">
         <img src="./images/header.png" class="header-image" alt="The reddit alien Snoo depicted in a plataform."
           ondblclick="try { localStorage.clear(); sessionStorage.clear(); console.log('Double click: cleared localStorage and sessionStorage'); document.write('resetting...'); setTimeout(() => { location.reload(true); }, 1000); } catch(e) { console.error('Double click error:', e); }"
           ontouchend="if (window._dblTouchTimeout) { try { localStorage.clear(); sessionStorage.clear(); console.log('Double touch: cleared localStorage and sessionStorage'); document.write('resetting...'); setTimeout(() => { location.reload(true); }, 1000); } catch(e) { console.error('Double touch error:', e); } window._dblTouchTimeout = null; } else { window._dblTouchTimeout = setTimeout(function(){ window._dblTouchTimeout = null; }, 300); }" />
@@ -47,25 +46,34 @@
             <div class="middle-content">
             </div>
           </div>
-          <div class="footer-wrapper">
+          <div class="footer-wrapper" style="margin-top: 2rem;">
             <div class="footer-content">
               <h2>About This Game</h2>
-              <p>This is a platform game featuring Snoo, the Reddit mascot. Use the arrow keys or WASD to move Snoo
+              <p>This is a platform game featuring <a href="https://reddit.fandom.com/wiki/Snoo" target="_blank"
+                  rel="noopener noreferrer" style="filter: grayscale(1); font-weight: lighter;">Snoo</a>, the Reddit
+                mascot. I created it to give life to <a href="https://old.reddit.com/r/gamedev/" target="_blank"
+                  rel="noopener noreferrer">/r/gamedev</a>'s
+                banner art found in the old version of reddit.</p>
+              <p>Use the arrow keys or WASD to move Snoo
                 around
                 the levels, collect items, and avoid obstacles. Double-tap or double-click the header image to reset
                 your
                 progress.</p>
               <h2>Controls</h2>
               <ul>
-                <li><strong>Move Left:</strong> Left Arrow or 'A'</li>
-                <li><strong>Move Right:</strong> Right Arrow or 'D'</li>
-                <li><strong>Jump:</strong> Up Arrow or 'W' or Spacebar</li>
-                <li><strong>Reset Progress:</strong> Double-tap or double-click the header image</li>
+                <li><strong>Move Left:</strong> Left arrow or 'A'</li>
+                <li><strong>Move Right:</strong> Right arrow or 'D'</li>
+                <li><strong>Jump:</strong> Up arrow or 'W' or Spacebar</li>
+                <li><strong>Run:</strong> Double-tap a movement key</li>
               </ul>
               <h2>Enjoy the Game!</h2>
               <p>Have fun playing Snoo's Adventure! If you encounter any issues, please try refreshing the page or
                 clearing
                 your browser's cache.</p>
+              <p>The game was written in HTML5
+                with JavaScript (ES2023) and
+                WebGL (no framework).</p>
+
             </div>
           </div>
         </div>
