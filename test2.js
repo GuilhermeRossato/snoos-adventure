@@ -1,6 +1,6 @@
 'use strict';
 
-console.log = ()=>{}
+console.log = () => { }
 
 const types = {
   "stone": {
@@ -13,6 +13,10 @@ const types = {
     "texture": "./assets/wood.png",
   },
 }
+
+// Add: global world offset for scrolling
+let worldOffset = { x: 0, y: 0 };
+console.log('global: worldOffset initialized', 'x:', worldOffset.x, 'y:', worldOffset.y);
 
 async function loadTextures() {
   // reuse existing atlas if present
@@ -35,9 +39,9 @@ async function loadTextures() {
       const img = await loadImage(texPath);
       images.push({ key, img });
       console.log('loadTextures: image loaded', 'index:', i, 'key:', key,
-        'imgW:', img.width, 'imgH:', img.height, 'file:', JSON.stringify(texPath).slice(0,16), 'len:', texPath.length);
+        'imgW:', img.width, 'imgH:', img.height, 'file:', JSON.stringify(texPath).slice(0, 16), 'len:', texPath.length);
     } catch (err) {
-      console.error('loadTextures: load failed', 'key:', key, 'file:', JSON.stringify(texPath).slice(0,16),
+      console.error('loadTextures: load failed', 'key:', key, 'file:', JSON.stringify(texPath).slice(0, 16),
         'len:', texPath.length, 'errMsg:', err && err.message);
       continue;
     }
@@ -194,16 +198,20 @@ async function loadTextures() {
 }
 
 function isPowerOf2(v) {
-    return (v & (v - 1)) === 0 && v !== 0;
-  }
+  return (v & (v - 1)) === 0 && v !== 0;
+}
 
 
 const vertexSrc = `
   attribute vec2 a_position;
   attribute vec2 a_texcoord;
+  // per-vertex tint: rgb + weight packed as vec4 (r,g,b,weight)
+  attribute vec4 a_tint;
   varying vec2 v_texcoord;
+  varying vec4 v_tint;
   void main() {
     v_texcoord = a_texcoord;
+    v_tint = a_tint;
     gl_Position = vec4(a_position, 0.0, 1.0);
   }
 `;
@@ -212,13 +220,19 @@ const fragmentSrc = `
   precision mediump float;
   uniform sampler2D u_texture;
   varying vec2 v_texcoord;
+  varying vec4 v_tint; // rgb + weight
   void main() {
-    gl_FragColor = texture2D(u_texture, v_texcoord);
+    vec4 tex = texture2D(u_texture, v_texcoord);
+    // blend texture color with tint RGB using weight in v_tint.a
+    // result = mix(tex.rgb, tint.rgb, weight), preserve original alpha
+    float w = clamp(v_tint.a, 0.0, 1.0);
+    vec3 blended = mix(tex.rgb, v_tint.rgb, w);
+    gl_FragColor = vec4(blended, tex.a);
   }
 `;
 
 
-  init().then(r => (r !== undefined) && console.log("init() return:", r)).catch(err => { console.error(err); });
+init().then(r => (r !== undefined) && console.log("init() return:", r)).catch(err => { console.error(err); });
 
 function loadImage(filePath) {
   return new Promise((resolve, reject) => {
@@ -238,16 +252,16 @@ function loadImage(filePath) {
 function createShader(gl, type, src) {
   const sh = gl.createShader(type);
   if (!sh) {
-    console.error('createShader: gl.createShader failed', 'type:', type);
+    console.error('gl.createShader failed', 'type:', type);
     return null;
   }
   gl.shaderSource(sh, src);
   gl.compileShader(sh);
   const ok = gl.getShaderParameter(sh, gl.COMPILE_STATUS);
-  console.log('createShader: compile status', 'type:', type, 'ok:', ok);
+  console.log('compile status', 'type:', type, 'ok:', ok);
   if (!ok) {
     const log = gl.getShaderInfoLog(sh);
-    console.error('createShader: compilation failed', 'type:', type, 'log prefix:', JSON.stringify(log).slice(0, 20), 'log len:', log ? log.length : -1);
+    console.error('compilation failed', 'type:', type, 'log prefix:', JSON.stringify(log).slice(0, 20), 'log len:', log ? log.length : -1);
     gl.deleteShader(sh);
     return null;
   }
@@ -288,7 +302,8 @@ function createProgram(gl, vsSrc, fsSrc) {
 }
 
 class SpriteBatch {
-  constructor(gl, canvasW, canvasH, texW, texH, maxSprites, positionBuffer, texcoordBuffer, posLoc, texLoc) {
+  // added tintBuffer and tintLoc parameters (tint buffer comes before attribute locations)
+  constructor(gl, canvasW, canvasH, texW, texH, maxSprites, positionBuffer, texcoordBuffer, tintBuffer, posLoc, texLoc, tintLoc) {
     this.gl = gl;
     this.canvasW = canvasW;
     this.canvasH = canvasH;
@@ -297,28 +312,36 @@ class SpriteBatch {
     this.maxSprites = maxSprites;
     this.positionBuffer = positionBuffer;
     this.texcoordBuffer = texcoordBuffer;
+    this.tintBuffer = tintBuffer;
     this.posLoc = posLoc;
     this.texLoc = texLoc;
+    this.tintLoc = tintLoc;
     this.spriteCount = 0;
     this.positions = new Float32Array(maxSprites * 6 * 2);
     this.texcoords = new Float32Array(maxSprites * 6 * 2);
+    // per-vertex tint: 6 verts * 4 components (r,g,b,weight)
+    this.tints = new Float32Array(maxSprites * 6 * 4);
     this.dirty = new Set();
     this._sprites = []; // internal storage
     this._dirtyFlags = new Uint8Array(maxSprites); // 0/1 per sprite
-    console.log('SpriteBatch: constructed', 'canvasW:', canvasW, 'canvasH:', canvasH, 'texW:', texW, 'texH:', texH, 'maxSprites:', maxSprites);
+    // per-batch offset (group/world origin)
+    this.offset = { x: 0, y: 0 };
+    console.log('SpriteBatch: constructed', 'canvasW:', canvasW, 'canvasH:', canvasH, 'texW:', texW, 'texH:', texH, 'maxSprites:', maxSprites, 'offsetX:', this.offset.x, 'offsetY:', this.offset.y, 'tintLoc:', this.tintLoc);
   }
-  createSprite(dstX, dstY, dstW, dstH, srcX, srcY, srcW, srcH) {
+  createSprite(dstX, dstY, dstW, dstH, srcX, srcY, srcW, srcH, tint) {
     if (this.spriteCount >= this.maxSprites) {
       console.error('SpriteBatch.createSprite: capacity full', 'spriteCount:', this.spriteCount, 'maxSprites:', this.maxSprites);
       return null;
     }
     const index = this.spriteCount++;
-    const sprite = { index, dstX, dstY, dstW, dstH, srcX, srcY, srcW, srcH };
+    // tint: optional array [r,g,b,weight] default -> no tint (white,0)
+    const t = Array.isArray(tint) && tint.length >= 4 ? tint.slice(0,4) : [1.0, 1.0, 1.0, 0.0];
+    const sprite = { index, dstX, dstY, dstW, dstH, srcX, srcY, srcW, srcH, tint: t };
     this._sprites.push(sprite);
     this.updateSprite(index);
     console.log('SpriteBatch.createSprite: sprite created', 'index:', index,
       'dstX:', dstX, 'dstY:', dstY, 'dstW:', dstW, 'dstH:', dstH,
-      'srcX:', srcX, 'srcY:', srcY, 'srcW:', srcW, 'srcH:', srcH, 'spriteCount:', this.spriteCount);
+      'srcX:', srcX, 'srcY:', srcY, 'srcW:', srcW, 'srcH:', srcH, 'spriteCount:', this.spriteCount, 'tint:', t);
     return sprite;
   }
   _getSprite(index) {
@@ -342,23 +365,29 @@ class SpriteBatch {
         'dstW:', spr.dstW, 'dstH:', spr.dstH, 'srcW:', spr.srcW, 'srcH:', spr.srcH);
       return;
     }
-    const left = (spr.dstX / this.canvasW) * 2 - 1;
-    const right = ((spr.dstX + spr.dstW) / this.canvasW) * 2 - 1;
-    const top = - (spr.dstY / this.canvasH) * 2 + 1;
-    const bottom = - ((spr.dstY + spr.dstH) / this.canvasH) * 2 + 1;
+
+    // Apply batch offset and global world offset to compute final world position
+    const worldX = spr.dstX + this.offset.x + (worldOffset && worldOffset.x ? worldOffset.x : 0);
+    const worldY = spr.dstY + this.offset.y + (worldOffset && worldOffset.y ? worldOffset.y : 0);
+
+    const left = (worldX / this.canvasW) * 2 - 1;
+    const right = ((worldX + spr.dstW) / this.canvasW) * 2 - 1;
+    const top = - (worldY / this.canvasH) * 2 + 1;
+    const bottom = - ((worldY + spr.dstH) / this.canvasH) * 2 + 1;
     const u0 = spr.srcX / this.texW;
     const u1 = (spr.srcX + spr.srcW) / this.texW;
     const v0 = spr.srcY / this.texH;
     const v1 = (spr.srcY + spr.srcH) / this.texH;
     const base = index * 12; // 6 verts * 2 components
+
     // Positions (6 vertices)
     this.positions.set([
-      left,  bottom,
+      left, bottom,
       right, bottom,
-      left,  top,
+      left, top,
       right, bottom,
       right, top,
-      left,  top
+      left, top
     ], base);
     // Texcoords
     this.texcoords.set([
@@ -369,12 +398,29 @@ class SpriteBatch {
       u1, v0,
       u0, v0
     ], base);
+
+    // Tints: 6 verts * 4 components
+    const tintBase = index * 24; // 6 * 4
+    const t = spr.tint;
+    // Fill all six vertices with same tint (r,g,b,weight)
+    for (let v = 0; v < 6; v++) {
+      const off = tintBase + v * 4;
+      this.tints[off + 0] = t[0];
+      this.tints[off + 1] = t[1];
+      this.tints[off + 2] = t[2];
+      this.tints[off + 3] = t[3];
+    }
+
     this.dirty.add(index);
     this._dirtyFlags[index] = 1;
     console.log('SpriteBatch.updateSprite: updated sprite', 'index:', index,
+      'localPosX:', spr.dstX.toFixed(2), 'localPosY:', spr.dstY.toFixed(2),
+      'worldX:', worldX.toFixed(2), 'worldY:', worldY.toFixed(2),
+      'batchOffsetX:', this.offset.x.toFixed(2), 'batchOffsetY:', this.offset.y.toFixed(2),
+      'worldOffsetX:', (worldOffset && worldOffset.x) ? worldOffset.x.toFixed(2) : '0.00',
+      'worldOffsetY:', (worldOffset && worldOffset.y) ? worldOffset.y.toFixed(2) : '0.00',
       'posBaseFloats:', base, 'dirtyCountSet:', this.dirty.size,
-      'dstX:', spr.dstX, 'dstY:', spr.dstY, 'dstW:', spr.dstW, 'dstH:', spr.dstH,
-      'srcX:', spr.srcX, 'srcY:', spr.srcY, 'srcW:', spr.srcW, 'srcH:', spr.srcH);
+      'dstW:', spr.dstW, 'dstH:', spr.dstH, 'srcX:', spr.srcX, 'srcY:', spr.srcY, 'srcW:', spr.srcW, 'srcH:', spr.srcH, 'tint:', t);
   }
   uploadDirty() {
     const gl = this.gl;
@@ -382,7 +428,7 @@ class SpriteBatch {
       console.log('SpriteBatch.uploadDirty: no dirty sprites');
       return;
     }
-    const indices = Array.from(this.dirty).sort((a,b)=>a-b);
+    const indices = Array.from(this.dirty).sort((a, b) => a - b);
     let rangeStart = indices[0];
     let prev = rangeStart;
     gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
@@ -417,6 +463,25 @@ class SpriteBatch {
       rangeStart = curr;
       prev = curr;
     }
+    // Upload tint ranges (6 verts * 4 floats per sprite)
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.tintBuffer);
+    rangeStart = indices[0];
+    prev = rangeStart;
+    for (let i = 1; i <= indices.length; i++) {
+      const curr = indices[i];
+      if (curr === prev + 1) {
+        prev = curr;
+        continue;
+      }
+      const count = (prev - rangeStart + 1);
+      const floatStart = rangeStart * 24;
+      const floatCount = count * 24;
+      gl.bufferSubData(gl.ARRAY_BUFFER, floatStart * 4, this.tints.subarray(floatStart, floatStart + floatCount));
+      console.log('SpriteBatch.uploadDirty: tint range', 'startIdx:', rangeStart, 'endIdx:', prev, 'sprites:', count);
+      rangeStart = curr;
+      prev = curr;
+    }
+
     this.dirty.clear();
     this._dirtyFlags.fill(0);
     console.log('SpriteBatch.uploadDirty: completed', 'rangesProcessed:', indices.length);
@@ -434,6 +499,17 @@ class SpriteBatch {
     gl.bindBuffer(gl.ARRAY_BUFFER, this.texcoordBuffer);
     gl.enableVertexAttribArray(this.texLoc);
     gl.vertexAttribPointer(this.texLoc, 2, gl.FLOAT, false, 0, 0);
+
+    // Bind tint attribute
+    if (typeof this.tintLoc === 'number' && this.tintLoc >= 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.tintBuffer);
+      gl.enableVertexAttribArray(this.tintLoc);
+      // 4 floats: r,g,b,weight
+      gl.vertexAttribPointer(this.tintLoc, 4, gl.FLOAT, false, 0, 0);
+    } else {
+      console.log('SpriteBatch.render: tintLoc invalid, skipping tint attribute bind', 'tintLoc:', this.tintLoc);
+    }
+
     gl.drawArrays(gl.TRIANGLES, 0, this.spriteCount * 6);
     console.log('SpriteBatch.render: drawArrays issued', 'spriteCount:', this.spriteCount, 'verts:', this.spriteCount * 6);
   }
@@ -534,11 +610,12 @@ async function init() {
 
   const posLoc = gl.getAttribLocation(program, 'a_position');
   const texLocAttr = gl.getAttribLocation(program, 'a_texcoord');
-  if (posLoc === -1 || texLocAttr === -1) {
-    console.error('init: attribute location failure', 'posLoc:', posLoc, 'texLocAttr:', texLocAttr);
+  const tintLoc = gl.getAttribLocation(program, 'a_tint');
+  if (posLoc === -1 || texLocAttr === -1 || tintLoc === -1) {
+    console.error('init: attribute location failure', 'posLoc:', posLoc, 'texLocAttr:', texLocAttr, 'tintLoc:', tintLoc);
     return;
   }
-  console.log('init: attribute locations ok', 'posLoc:', posLoc, 'texLocAttr:', texLocAttr);
+  console.log('init: attribute locations ok', 'posLoc:', posLoc, 'texLocAttr:', texLocAttr, 'tintLoc:', tintLoc);
 
   const uTexLoc = gl.getUniformLocation(program, 'u_texture');
   if (!uTexLoc) {
@@ -570,22 +647,41 @@ async function init() {
       console.error('init: texcoordBuffer failed for batch', 'batch:', b);
       return;
     }
-    console.log('init: buffers created for batch', 'batch:', b, 'positionOk:', !!positionBuffer, 'texcoordOk:', !!texcoordBuffer);
+    // create tint buffer
+    const tintBuffer = gl.createBuffer();
+    if (!tintBuffer) {
+      console.error('init: tintBuffer failed for batch', 'batch:', b);
+      return;
+    }
+    console.log('init: buffers created for batch', 'batch:', b, 'positionOk:', !!positionBuffer, 'texcoordOk:', !!texcoordBuffer, 'tintOk:', !!tintBuffer);
+
+    // allocate GL buffers (size in bytes): BATCH_SIZE * 6 verts * components * 4 bytes
+    const posBytes = BATCH_SIZE * 6 * 2 * 4;
+    const texBytes = BATCH_SIZE * 6 * 2 * 4;
+    const tintBytes = BATCH_SIZE * 6 * 4 * 4;
+
+    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, posBytes, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, texBytes, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, tintBuffer);
+    gl.bufferData(gl.ARRAY_BUFFER, tintBytes, gl.DYNAMIC_DRAW);
+    console.log('init: buffers allocated for batch', 'batch:', b, 'posBytes:', posBytes, 'texBytes:', texBytes, 'tintBytes:', tintBytes);
 
     const batch = new SpriteBatch(gl, canvas.width, canvas.height, texW, texH,
-      BATCH_SIZE, positionBuffer, texcoordBuffer, posLoc, texLocAttr);
+      BATCH_SIZE, positionBuffer, texcoordBuffer, tintBuffer, posLoc, texLocAttr, tintLoc);
     if (!batch) {
       console.error('init: SpriteBatch construction failed', 'batch:', b);
       return;
     }
+
+    // Give each batch its own offset (group offset). Example: small random offset to demonstrate group placement.
+    batch.offset = { x: (Math.random() * 400 - 200), y: (Math.random() * 400 - 200) };
+    console.log('init: batch offset assigned', 'batch:', b, 'offsetX:', batch.offset.x.toFixed(2), 'offsetY:', batch.offset.y.toFixed(2));
+
     batches.push(batch);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, batch.positions.byteLength, gl.DYNAMIC_DRAW);
-    gl.bindBuffer(gl.ARRAY_BUFFER, texcoordBuffer);
-    gl.bufferData(gl.ARRAY_BUFFER, batch.texcoords.byteLength, gl.DYNAMIC_DRAW);
-    console.log('init: buffers allocated for batch', 'batch:', b, 'posBytes:', batch.positions.byteLength, 'texBytes:', batch.texcoords.byteLength);
-
+    // Fill sprites in batch
     const velocitiesForBatch = [];
     for (let i = 0; i < BATCH_SIZE; i++) {
       const k = keys[Math.floor(Math.random() * keys.length)];
@@ -596,6 +692,7 @@ async function init() {
       }
       const w = info.w;
       const h = info.h;
+      // Keep sprite local positions (relative to batch.offset). Using visible canvas area for initial local placement.
       const x = Math.random() * Math.max(0, (canvas.width - w));
       const y = Math.random() * Math.max(0, (canvas.height - h));
       const spr = batch.createSprite(x, y, w, h, info.x, info.y, info.w, info.h);
@@ -622,7 +719,7 @@ async function init() {
         return;
       }
       gl.clear(gl.COLOR_BUFFER_BIT);
-      console.log('frame: begin', 'sprites:', 'dtMs:', dtMs.toFixed(2));
+      console.log('frame: begin', 'dtMs:', dtMs.toFixed(2));
 
       const cw = canvas.width;
       const ch = canvas.height;
@@ -632,63 +729,95 @@ async function init() {
         const sprites = batch._sprites;
         if (!batch || !velocities || !sprites) {
           console.log('frame: missing batch/velocities/sprites', 'batchIdx:', b,
-        'batch:', !!batch, 'velocities:', !!velocities, 'sprites:', !!sprites);
+            'batch:', !!batch, 'velocities:', !!velocities, 'sprites:', !!sprites);
           continue;
         }
         for (let i = 0; i < sprites.length; i++) {
           const spr = sprites[i];
           if (!spr) {
-        console.log('frame: missing sprite', 'batchIdx:', b, 'spriteIdx:', i);
-        continue;
+            console.log('frame: missing sprite', 'batchIdx:', b, 'spriteIdx:', i);
+            continue;
           }
           const vel = velocities[i];
           if (!vel) {
-        console.log('frame: missing velocity', 'batchIdx:', b, 'spriteIdx:', i);
-        continue;
+            console.log('frame: missing velocity', 'batchIdx:', b, 'spriteIdx:', i);
+            continue;
           }
 
-          // Integrate
-          let newX = spr.dstX + vel.vx * dt;
-          let newY = spr.dstY + vel.vy * dt;
+          // Integrate in local coordinates
+          let newLocalX = spr.dstX + vel.vx * dt;
+          let newLocalY = spr.dstY + vel.vy * dt;
+
+          // World positions taking batch offset + global worldOffset into account
+          const batchOffX = batch.offset ? batch.offset.x : 0;
+          const batchOffY = batch.offset ? batch.offset.y : 0;
+          const globalOffX = worldOffset ? worldOffset.x : 0;
+          const globalOffY = worldOffset ? worldOffset.y : 0;
+
+          const worldNewX = batchOffX + globalOffX + newLocalX;
+          const worldNewY = batchOffY + globalOffY + newLocalY;
+
+          // Compute allowed local range so that world position fits inside canvas [0, cw/ch]
+          const minLocalX = - (batchOffX + globalOffX);
+          const maxLocalX = cw - spr.dstW - (batchOffX + globalOffX);
+          const minLocalY = - (batchOffY + globalOffY);
+          const maxLocalY = ch - spr.dstH - (batchOffY + globalOffY);
 
           // Bounce X
-          if (newX < 0) {
-        newX = 0;
-        vel.vx = Math.abs(vel.vx);
-        console.log('frame:bounceX:left', 'batchIdx:', b, 'spriteIdx:', i, 'newX:', newX, 'vx:', vel.vx.toFixed(2));
-          } else if (newX + spr.dstW > cw) {
-        newX = cw - spr.dstW;
-        vel.vx = -Math.abs(vel.vx);
-        console.log('frame:bounceX:right', 'batchIdx:', b, 'spriteIdx:', i, 'newX:', newX, 'vx:', vel.vx.toFixed(2));
+          if (worldNewX < 0) {
+            newLocalX = minLocalX;
+            vel.vx = Math.abs(vel.vx);
+            console.log('frame:bounceX:left', 'batchIdx:', b, 'spriteIdx:', i,
+              'newLocalX:', newLocalX.toFixed(2), 'worldNewX:', worldNewX.toFixed(2),
+              'vx:', vel.vx.toFixed(2), 'minLocalX:', minLocalX.toFixed(2), 'batchOffX:', batchOffX.toFixed(2), 'globalOffX:', globalOffX.toFixed(2));
+          } else if (worldNewX + spr.dstW > cw) {
+            newLocalX = maxLocalX;
+            vel.vx = -Math.abs(vel.vx);
+            console.log('frame:bounceX:right', 'batchIdx:', b, 'spriteIdx:', i,
+              'newLocalX:', newLocalX.toFixed(2), 'worldNewX:', (worldNewX + spr.dstW).toFixed(2),
+              'vx:', vel.vx.toFixed(2), 'maxLocalX:', maxLocalX.toFixed(2), 'batchOffX:', batchOffX.toFixed(2), 'globalOffX:', globalOffX.toFixed(2));
           } else {
-        console.log('frame:noBounceX', 'batchIdx:', b, 'spriteIdx:', i, 'newX:', newX.toFixed(2));
+            console.log('frame:noBounceX', 'batchIdx:', b, 'spriteIdx:', i, 'newLocalX:', newLocalX.toFixed(2), 'worldNewX:', worldNewX.toFixed(2));
           }
 
           // Bounce Y
-          if (newY < 0) {
-        newY = 0;
-        vel.vy = Math.abs(vel.vy);
-        console.log('frame:bounceY:top', 'batchIdx:', b, 'spriteIdx:', i, 'newY:', newY, 'vy:', vel.vy.toFixed(2));
-          } else if (newY + spr.dstH > ch) {
-        newY = ch - spr.dstH;
-        vel.vy = -Math.abs(vel.vy);
-        console.log('frame:bounceY:bottom', 'batchIdx:', b, 'spriteIdx:', i, 'newY:', newY, 'vy:', vel.vy.toFixed(2));
+          if (worldNewY < 0) {
+            newLocalY = minLocalY;
+            vel.vy = Math.abs(vel.vy);
+            console.log('frame:bounceY:top', 'batchIdx:', b, 'spriteIdx:', i,
+              'newLocalY:', newLocalY.toFixed(2), 'worldNewY:', worldNewY.toFixed(2),
+              'vy:', vel.vy.toFixed(2), 'minLocalY:', minLocalY.toFixed(2), 'batchOffY:', batchOffY.toFixed(2), 'globalOffY:', globalOffY.toFixed(2));
+          } else if (worldNewY + spr.dstH > ch) {
+            newLocalY = maxLocalY;
+            vel.vy = -Math.abs(vel.vy);
+            console.log('frame:bounceY:bottom', 'batchIdx:', b, 'spriteIdx:', i,
+              'newLocalY:', newLocalY.toFixed(2), 'worldNewY:', (worldNewY + spr.dstH).toFixed(2),
+              'vy:', vel.vy.toFixed(2), 'maxLocalY:', maxLocalY.toFixed(2), 'batchOffY:', batchOffY.toFixed(2), 'globalOffY:', globalOffY.toFixed(2));
           } else {
-        console.log('frame:noBounceY', 'batchIdx:', b, 'spriteIdx:', i, 'newY:', newY.toFixed(2));
+            console.log('frame:noBounceY', 'batchIdx:', b, 'spriteIdx:', i, 'newLocalY:', newLocalY.toFixed(2), 'worldNewY:', worldNewY.toFixed(2));
           }
 
-          // Commit once and mark dirty
-          spr.dstX = newX;
-          spr.dstY = newY;
+          // Commit once and mark dirty (local positions)
+          spr.dstX = newLocalX;
+          spr.dstY = newLocalY;
           batch.updateSprite(i);
 
-          console.log('frame:update', 'batchIdx:', b, 'spriteIdx:', i, 'dstX:', spr.dstX.toFixed(2), 'dstY:', spr.dstY.toFixed(2),
-        'vx:', vel.vx.toFixed(2), 'vy:', vel.vy.toFixed(2));
+          console.log('frame:update', 'batchIdx:', b, 'spriteIdx:', i, 'localX:', spr.dstX.toFixed(2), 'localY:', spr.dstY.toFixed(2),
+            'worldX:', (spr.dstX + batchOffX + globalOffX).toFixed(2), 'worldY:', (spr.dstY + batchOffY + globalOffY).toFixed(2),
+            'vx:', vel.vx.toFixed(2), 'vy:', vel.vy.toFixed(2));
         }
         batch.render();
-        console.log('frame: rendered', 'batchIdx:', b, 'verts:', batch.spriteCount * 6);
+        console.log('frame: rendered', 'batchIdx:', b, 'verts:', batch.spriteCount * 6, 'batchOffsetX:', batch.offset.x.toFixed(2), 'batchOffsetY:', batch.offset.y.toFixed(2));
+        
+        if (Math.random() < 0.5) {
+          batch.offset.y += 10 * Math.random();
+        }
       }
- requestAnimationFrame(frame);
+      if (Math.random() < 0.5) {
+        worldOffset.y -= Math.random() * 10;
+        console.log('frame: worldOffset.y moved up', 'newY:', worldOffset.y.toFixed(2));
+      }
+      requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);
     console.log('gameLoopSetup: started');
