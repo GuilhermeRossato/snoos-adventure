@@ -23,6 +23,9 @@ const keyLookup = {
   "Shift": "shift",
   "16": "shift",
   "Q": "shift",
+
+  "Escape": "esc",
+  "F3": "debug",
 }
 
 export const keys = {
@@ -33,6 +36,9 @@ export const keys = {
     "right": false,
     "shift": false,
     "ctrl": false,
+    "space": false,
+    "debug": false,
+    "esc": false,
   },
   _addKeyCallback: function (eventCode, key, callback) {
     debug && console.log(`Adding callback of type "${eventCode}" for key '${key}'`, this.states[key] === undefined ? '(custom key)' : '');
@@ -382,10 +388,10 @@ export const keys = {
   },
 };
 
-const arrowLookup = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'];
+const ignoreList = ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'F3'];
 
 function handleKey(ev) {
-  if (arrowLookup.includes(String(ev.key))) {
+  if (ignoreList.includes(String(ev.key))) {
     ev.preventDefault();
   }
   const prop = keyLookup[String(ev.key)] || keyLookup[String(ev.keyCode)] || keyLookup[String(ev.code)];

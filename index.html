@@ -4,7 +4,7 @@
 <head>
   <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-  <title>Snoo"s Adventure - Snoo"s Platform Game</title>
+  <title>Snoo's Adventure - Snoo's Platform Game</title>
   <link href="./assets/style.css" rel="stylesheet" type="text/css">
   <script type="module" async defer src="./src/init.js"></script>
   <link rel="icon" type="image/png" sizes="192x192" href="./favicons/android-icon-192x192.png">
@@ -15,32 +15,92 @@
   <meta name="msapplication-TileColor" content="#688195">
   <meta name="msapplication-TileImage" content="./favicons/ms-icon-144x144.png">
   <meta name="theme-color" content="#688195">
+  <script>
+    let lastCall = 0;
+    let lastFunc = '';
+    window.customRequestAnimationFrame = function (callback) {
+      if (callback.name === lastFunc && (performance.now() - lastCall) < 16) {
+        console.log("Throttling redundant rAF call for function:", callback.name);
+        return;
+      } else if (lastFunc !== callback.name) {
+        lastFunc = callback.name;
+        console.log("New rAF function detected:", callback.name);
+      }
+      return window.requestAnimationFrame(callback);
+    };
+  </script>
 </head>
 
 <body
   style="margin: 0; padding: 0; width: 100vw; overflow: hidden scroll; min-height: 100vh; box-sizing: border-box; min-width: 100vw;background-color:#688195; background-image: url(./images/background.png);">
   <div id="main" class="at-top" style="min-height: 100vh; width: 100vw; max-width: 100vw; min-width: 100vw;">
-    <div class="image-spacer" style="min-height: calc(25vw + 10px);">
+    <div class="image-spacer"
+      style="min-height: calc(25vw + 15px); max-height: calc(25vw + 15px);height: calc(25vw + 15px); max-width: 100vw;">
       <div class="image-wrapper"
-        style="display: flex; width: 100vw; position: absolute; left: 0; justify-content: center;">
-        <img src="./images/header.png" class="header-image" alt="The reddit alien Snoo depicted in a plataform."
-          ondblclick="try { localStorage.clear(); sessionStorage.clear(); console.log('Double click: cleared localStorage and sessionStorage'); document.write('resetting...'); setTimeout(() => { location.reload(true); }, 1000); } catch(e) { console.error('Double click error:', e); }"
-          ontouchend="if (window._dblTouchTimeout) { try { localStorage.clear(); sessionStorage.clear(); console.log('Double touch: cleared localStorage and sessionStorage'); document.write('resetting...'); setTimeout(() => { location.reload(true); }, 1000); } catch(e) { console.error('Double touch error:', e); } window._dblTouchTimeout = null; } else { window._dblTouchTimeout = setTimeout(function(){ window._dblTouchTimeout = null; }, 300); }" />
+        style="display: flex; justify-content: center; align-items: center; width: 100vw; max-width: 100vw; position: absolute; left: 0; top: 0; overflow: hidden;">
+        <img
+          onload="javascript:document.querySelector('.header-image').setAttribute('data-loaded',Date.now()+'-'+Math.floor(performance.now()));void null;"
+          src="./images/header.png" class="header-image" alt="The reddit alien Snoo depicted in a plataform."
+          style="width: 118vw; max-width: 1800px; margin: 0; user-select: none; pointer-events: none;" />
       </div>
     </div>
+
     <div class="container-wrapper">
       <div class="container yellow-bg-light">
         <div class="content yellow-bg">
           <h1 style="height: calc(4.17vw + 30px); padding: 0 0 1rem 0;">
             <span class="title">Snoo's Adventure</span>
           </h1>
+          <script>
+            const e = document.querySelector('.header-image');
+            const state = sessionStorage.getItem('last-header-pop-up') || "";
+            if (state) {
+              console.log("Header pop-up recently shown, skipping animation");
+              e.style.transform = `translateY(0%)`;
+            } else if (e.getAttribute('data-loaded') || e.naturalWidth || e.naturalHeight) {
+              console.log("Header pop-up image already loaded, skipping animation");
+              e.style.transition = "none";
+              e.style.transform = `translateY(0%)`;
+            } else {
+              console.log("Image not loaded yet and no recent pop-up, starting animation on load");
+              e.style.transition = "none";
+              e.style.transform = `translateY(-100%)`;
+              let htmr = setTimeout(() => {
+                htmr = null;
+                console.log("Header image not loaded after 1s, starting animation anyway");
+                e.style.transform = `translateY(0%)`;
+              }, 1000);
+              setTimeout(() => {
+                if (window.scrollY > 0) {
+                  sessionStorage.setItem('last-header-pop-up', Date.now() + '-' + Math.floor(performance.now()));
+                  console.log("User has scrolled down, cancelling header animation");
+                  e.style.transition = "none";
+                  e.style.transform = `translateY(0%)`;
+                  if (htmr) {
+                    clearTimeout(htmr);
+                    htmr = null;
+                  }
+                } else {
+                  e.style.transition = "transform 3s ease-out";
+                }
+              }, 10);
+              e.addEventListener('load', () => {
+                if (htmr === null) {
+                  return;
+                }
+                console.log("Header image loaded, starting animation");
+                clearTimeout(htmr);
+                e.style.transform = `translateY(0%)`;
+                sessionStorage.setItem('last-header-pop-up', Date.now() + '-' + Math.floor(performance.now()));
+              });
+            }
+          </script>
           <div class="canvas-wrapper">
             <canvas oncontextmenu="return false;" id="canvas" width="480" height="480"
-              style="width: 100%; max-width: min(min(70vw, 70vh), 960px); box-sizing: border-box;">The &lt;canvas
-              &gt;tag is not
+              style="width: 100%; max-width: min(min(70vw, 70vh), 960px); box-sizing: border-box;">The canvas from HTML5
+              is not
               supported in your browser. I recommend using the latest version of Google Chrome to play this
               game.</canvas>
-
           </div>
           <div class="middle-wrapper disabled">
             <div class="middle-content">
@@ -56,9 +116,7 @@
                 banner art found in the old version of reddit.</p>
               <p>Use the arrow keys or WASD to move Snoo
                 around
-                the levels, collect items, and avoid obstacles. Double-tap or double-click the header image to reset
-                your
-                progress.</p>
+                the levels, collect items, and avoid obstacles. Double-tap movement keys to run.</p>
               <h2>Controls</h2>
               <ul>
                 <li><strong>Move Left:</strong> Left arrow or 'A'</li>
@@ -80,52 +138,49 @@
       </div>
     </div>
   </div>
+<style>
+.overlay-centerize {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0,0,0,0.8);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.1s;
+  z-index: 9999;
+}
+#canvas {
+  position: relative;
+  z-index: 10000;
+}
+</style>
+<div class="overlay-centerize"></div>
+<script>
+function showOverlay() {
+  const overlay = document.querySelector('.overlay-centerize');
+  overlay.classList.add('active');
+  console.log('Overlay shown, opacity:', overlay.style.opacity);
+}
+function hideOverlay() {
+  const overlay = document.querySelector('.overlay-centerize');
+  overlay.classList.remove('active');
+  console.log('Overlay hidden, opacity:', overlay.style.opacity);
+}
+</script>
+
+  <script src="./utils/liveWatcher.js"></script>
+  <script type="module" src="./src/centerize.js"></script>
   <script>
     try {
-      applyLoad();
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+        document.querySelector('body').classList.add('dark-theme');
+      }
     } catch (e) {
       console.error(e);
     }
-    window.addEventListener("DOMContentLoaded", (event) => {
-      const f = (localStorage.clearItem || localStorage.removeItem).bind(localStorage);
-      window.onload = window.onresize = window.onwheel = window.onscroll = window.onpointermove = function () {
-        const main = document.getElementById("main");
-        if (!main)
-          return;
-        if (window.scrollY <= 10) {
-          f("scrollPosition");
-        } else {
-          localStorage.setItem("scrollPosition", String(window.scrollY));
-        }
-      }
-        ;
-      try {
-        applyLoad();
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    );
-    window.onload = function () {
-      try {
-        applyLoad();
-      } catch (e) {
-        console.error(e);
-      }
-    }
-    function applyLoad() {
-      const scrollPosStr = localStorage.getItem("scrollPosition");
-      if (!scrollPosStr) {
-        return false;
-      }
-      document.getElementById("main").classList.remove("at-top");
-      const t = parseInt(scrollPosStr, 10) || 0;
-      window.scrollTo(0, t);
-      return true;
-    }
   </script>
-  <script src="./utils/liveWatcher.js"></script>
-  <script src="./src/load.js"></script>
 </body>
 
 </html>
