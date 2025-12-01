@@ -1,15 +1,77 @@
-import startGameLoop from "./game.js";
-
-let initialized = false;
-
-function updateGame() {
-console.log('Game loop updating...');
+import { SpriteBatch } from './modules/sprites.js';
+const menuState = {
+  active: false,
+  last: 0,
 }
 
-export function handleGameMenu(time) {
-  if (!initialized) {
-    initialized = true;
-    startGameLoop(updateGame);
-    window.sessionStorage.setItem('has-loaded', "1");
+/** @type {HTMLCanvasElement} */
+let canvas;
+
+/** @type {WebGLRenderingContext} */
+let gl;
+
+/** @type {SpriteBatch} */
+let spriteBatch;                                                                                                                                                                                            
+
+function initializeSpriteBatch(gl, canvas) {
+  const maxSprites = 1000; // Example value
+  spriteBatch = new SpriteBatch(gl, canvas.width, canvas.height, 1024, 1024, maxSprites);
+  console.log('SpriteBatch initialized:', spriteBatch);
+
+  // Add a few sprites
+  const spriteSize = 32; // Example sprite size
+  for (let i = 0; i < 5; i++) {
+    const x = Math.random() * (canvas.width - spriteSize);
+    const y = Math.random() * (canvas.height - spriteSize);
+    const sprite = spriteBatch.createSprite(x, y, spriteSize, spriteSize, 0, 0, spriteSize, spriteSize, [Math.random(), Math.random(), Math.random(), 1]);
+    if (!sprite) {
+      console.error('Failed to create sprite', 'index:', i);
+    } else {
+      console.log('Sprite created:', sprite);
+    }
+  }
+}
+
+function renderLoop(time) {
+  const dt = menuState.last ? (time - menuState.last) / 1000 : 0;
+  menuState.last = time;
+  menuState.active = true;
+  
+  gl.clear(gl.COLOR_BUFFER_BIT);
+  const sampleBatches = [spriteBatch]; // Example array of sprite batches
+  const sampleVelocitiesLists = [
+    new Array(spriteBatch.spriteCount).fill(0).map(() => ({ x: Math.random() * 100 - 50, y: Math.random() * 100 - 50 }))
+  ]; // Example velocities
+  for (let b = 0; b < sampleBatches.length; b++) {
+    const batch = sampleBatches[b];
+    if (!batch) {
+      console.error('renderLoop: missing batch', 'batchIndex:', b);
+      continue;
+    }
+    const velocities = sampleVelocitiesLists[b];
+    if (!velocities) {
+      console.error('renderLoop: missing velocities array', 'batchIndex:', b);
+      continue;
+    }
+    batch.render();
+  }
+  requestAnimationFrame(renderLoop);
+}
+
+export function startGameMenu(time) {
+  if (!menuState.active) {
+    menuState.last = time;
+    menuState.time = 0;
+    menuState.active = true;
+    canvas = document.querySelector('canvas#canvas_webgl');
+    if (!canvas||!(canvas instanceof HTMLCanvasElement)) {
+      throw new Error('Canvas webgl element not found');
+    }
+    gl = canvas.getContext('webgl');
+    if (!gl) {
+      throw new Error('WebGL context not available');
+    }
+    initializeSpriteBatch(gl, canvas);
+    requestAnimationFrame(renderLoop);
   }
 }

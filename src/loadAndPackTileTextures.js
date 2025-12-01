@@ -1,13 +1,11 @@
-import { textures } from "./game.js";
 import { loadImage } from "./loadImage.js";
 
-export async function loadTextures() {
+export async function loadAndPackTileTextures(textureLookup, tileLookup) {
   const debug = false;
 
-  debug && console.log('start', 'typeCount:', Object.keys(textures).length);
+  debug && console.log('start', 'typeCount:', Object.keys(tileLookup).length);
 
-  const textureLookup = {};
-  const keys = Object.keys(textures);
+  const keys = Object.keys(tileLookup);
   if (keys.length === 0) {
     debug && console.log('no types present', 'keysLen:', keys.length);
     return { canvas: null, lookup: textureLookup };
@@ -15,7 +13,7 @@ export async function loadTextures() {
   const images = [];
   for (let i = 0; i < keys.length; i++) {
     const key = keys[i];
-    const texPath = textures[key] && textures[key].texture;
+    const texPath = tileLookup[key] && tileLookup[key].texture;
     if (!texPath) {
       console.error('loadTextures: missing texture path', 'key:', key);
       continue;
@@ -129,7 +127,7 @@ export async function loadTextures() {
   const atlasH = rows * CELL;
   debug && console.log('final atlas size', 'atlasW:', atlasW, 'atlasH:', atlasH, 'rows:', rows, 'placements:', placements.length);
   /** @type {HTMLCanvasElement} */ // @ts-ignore
-  let atlasCanvas = document.getElementById('textureAtlas');
+  let atlasCanvas = document.getElementById('texture_atlas_canvas');
   if (atlasCanvas) {
     if (atlasCanvas.width !== atlasW || atlasCanvas.height !== atlasH) {
       atlasCanvas.width = atlasW;
@@ -140,7 +138,7 @@ export async function loadTextures() {
     }
   } else {
     atlasCanvas = document.createElement('canvas');
-    atlasCanvas.id = 'textureAtlas';
+    atlasCanvas.id = 'texture_atlas_canvas';
     atlasCanvas.width = atlasW;
     atlasCanvas.height = atlasH;
     if (document.body) {
@@ -178,5 +176,5 @@ export async function loadTextures() {
   }
 
   debug && console.log('complete', 'drawnCount:', placements.length, 'lookupKeys:', Object.keys(textureLookup).length);
-  return { canvas: atlasCanvas, lookup: textureLookup };
+  return { atlasCanvas, textureLookup };
 }

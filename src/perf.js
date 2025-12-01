@@ -72,7 +72,7 @@ export async function logPerf(t, special = false) {
     /** @type {any} */
     const bads = [
       b(h, 0, ib(10, 100, dlt)),
-      b(h, 0, ib(4, 64, dmt)),
+      b(h, 0, ib(4, 64, dmt)),7
     ];
     for (let y = 0; y < h; y++) {
       if (y < bads[0]) {
@@ -83,8 +83,8 @@ export async function logPerf(t, special = false) {
         continue;
       }
       if (y >= bads[0]) {
-        ld.data[(y * w + lx) * 4 + 0] = 255;
-        ld.data[(y * w + lx) * 4 + 1] = 0;
+        ld.data[(y * w + lx) * 4 + 0] = b(0, 255, ib(10, 100, dlt));
+        ld.data[(y * w + lx) * 4 + 1] = b(255, 0, ib(10, 100, dlt));
         ld.data[(y * w + lx) * 4 + 2] = 0;
         ld.data[(y * w + lx) * 4 + 3] = 255;
         continue;
@@ -93,9 +93,8 @@ export async function logPerf(t, special = false) {
     if (Math.abs(ls - t) >= 33) {
       ls = t;
       ct++;
-      console.log(dlt);
       (ct % 3 === 0) && draw5x3(1, 1, `${dlt.toFixed(1)} MS`.padEnd(8, ' '));
-      (ct % 3 === 2) && draw5x3(1, 1, ` ${dmt.toFixed(1)} MB`.padEnd(8, ' '));
+      (ct % 3 === 2) && draw5x3(1, 8, ` ${dmt.toFixed(1)} MB`.padEnd(8, ' '));
     }
 
     ctx.putImageData(ld, 0, 0);

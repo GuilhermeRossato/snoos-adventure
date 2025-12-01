@@ -1,44 +1,91 @@
 import { b, bc, ib, ibc } from "../utils/bezier.js";
 import { drawHTML5 } from "../utils/drawHTML5.js";
 import { expoEase } from "../utils/expoEase.js";
-import { handleGameMenu } from "./menu.js";
-import { keys } from "./keys.js";
+import { initMaps } from "./modules/maps.js";
+import { startGameMenu } from "./menu.js";
+import { initKeys } from "./modules/keys.js";
+import { initGL } from "./modules/webgl.js";
+import { initTextures } from "./modules/textures.js";
+import { initSprites } from "./modules/sprites.js";
+import { executeConcurrently as executeConcurrently } from "../utils/executeConcurrently.js";
 
-export const initState = {
-  loop: true,
-}
+const width = 480;
+const height = 480;
 
-let last = 0;
-let initialized = 0;
+/** @type {HTMLCanvasElement} */
+let canvas;
+
 /** @type {CanvasRenderingContext2D} */
 let ctx;
-let width = 480;
-let height = 480;
 
-let ms = 0;
+export const initState = {
+  active: false,
+  start: 0,
+  time: 0,
+  last: 0,
+}
 
-keys.onKeyDown('up', (event) => {
-  console.log('Resetting HTML5 logo animation');
-});
-
-keys.onKeyDown('KeyR', (event) => {
-  console.log('Resetting HTML5 logo animation');
-  if (event.shift) {
-    console.log('Resetting HTML5 logo animation');
-    ms = 0;
+async function init() {
+  if (canvas) {
+    throw new Error('init: already initialized');
   }
-});
+  canvas = document.querySelector('canvas#canvas_ctx');
+  if (canvas && canvas instanceof HTMLCanvasElement) {
+    ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = 'rgb(106, 166, 110)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      initState.active = true;
+      requestAnimationFrame(showHtml5Logo);
+    }
+  }
+  const [
+    textures,
+    keys,
+    maps,
+    gl,
+  ] = await executeConcurrently([
+    initTextures,
+    initKeys,
+    initMaps,
+    initGL,
+  ]);
+  const render = await initSprites(gl, textures);
+  console.log('init: All modules initialized');
+  initState.active = false;
+  let t = setInterval(() => {
+    if (!initState.done) {
+      return;
+    }
+    clearInterval(t);
+    requestAnimationFrame(render);
+  }, 100);
+  return;
+}
 
-initState.loop = true;
+init().then(r => (r !== undefined) && console.log("init() return:", r)).catch(err => { console.log(err);  });
 
 function showHtml5Logo(time) {
-  if (!initState.loop) {
-    console.log('Init loop disabled');
+  if (!initState.start) {
+    initState.start = time;
+    initState.time = 0;
+    initState.last = time;
+  }
+  if (initState.done) {
+    throw new Error('showHtml5Logo: already done');
+  }
+  let delta = -(initState.last - (initState.last = time));
+  if (delta > 200) delta = 16;
+  if (!initState.active) delta *= 3;
+  initState.time += delta;
+  renderHtml5Logo(initState.time);
+  if (initState.time > 3600) {
+    initState.time = 3600;
+    initState.done = true;
+    loadGameScript();
     return;
   }
-  const delta = -(last - (last = time));
-  ms += delta > 100 ? 16 : delta;
-  renderHtml5Logo(ms);
+  requestAnimationFrame(showHtml5Logo);
 }
 
 function renderHtml5Logo(time) {
@@ -46,12 +93,11 @@ function renderHtml5Logo(time) {
   const scale = bc(0.7, 1.05, bc(0, 1.0, expoEase(ibc(100, 2500, time))));
   drawHTML5(ctx, width / 2 - 90 * scale, height / 2 - ((255 + 30) / 2) * scale, scale, t);
   if (time >= 1700) {
-    const canvas = document.querySelector('canvas');
     ctx.fillStyle = `rgba(240,240,240,${bc(0, 1, ib(2000, 2500, time))})`;
     ctx.strokeStyle = `#ccc`;
     const stage = b(0, 255, ib(2000, 3250, time));
-    const x = (canvas.width / 2) - 150 + 2;
-    const y = 0.2 + (canvas.height / 2 - 255 / 2) + 266 + 2;
+    const x = (width / 2) - 150 + 2;
+    const y = 0.2 + (height / 2 - 255 / 2) + 266 + 2;
     const progress = Math.min(1, stage / 255);
     ctx.fillRect(Math.floor(x) + 0.5, Math.floor(y) + 0.5, 296 * progress, 14 + 0.5);
     ctx.strokeRect(Math.floor(x) + 0.5, Math.floor(y) + 0.5, 296 + 0.5, 14 + 0.5);
@@ -59,51 +105,9 @@ function renderHtml5Logo(time) {
   if (time > 3000) {
     ctx.globalAlpha = 1 - Math.min(1, expoEase(b(0, 1, ib(3250, 3500, time))));
   }
-  if (!initState.loop) {
-    console.log('Init loop disabled');
-    return;
-  }
-  if (time > 3450) {
-    ctx.clearRect(0, 0, width, height);
-    window.customRequestAnimationFrame(handleGameMenu);
-  } else {
-    window.customRequestAnimationFrame(showHtml5Logo);
-  }
 }
 
-window.customRequestAnimationFrame(function prepareHtml5Logo(time) {
-  if (!initState.loop) {
-    console.log('Init loop disabled');
-    return;
-  }
-  if (initialized >= 10) {
-    initialized = time;
-    return window.customRequestAnimationFrame(showHtml5Logo);
-  }
-  if (window.sessionStorage.getItem('has-loaded')) {
-    const atlas = document.querySelector('#textureAtlas');
-    if (atlas && atlas.width) {
-      console.log('Skipping HTML5 logo animation');
-      window["canvas"] = document.querySelector('canvas');
-      window["ctx"] = window["canvas"].getContext('2d');
-      handleGameMenu(time);
-      return;
-    }
-  }
-  const canvas = document.querySelector('canvas');
-  if (!canvas) return window.customRequestAnimationFrame(prepareHtml5Logo);
-  if (window['canvas']) {
-    window["canvas"] = canvas;
-    width = canvas.width;
-    height = canvas.height;
-    ctx = canvas.getContext('2d');
-    window["ctx"] = ctx;
-  }
-  if (time < 500) {
-    const rect = canvas.getBoundingClientRect();
-    if (rect.bottom > window.innerHeight) return window.customRequestAnimationFrame(prepareHtml5Logo);
-  }
-  initialized = initialized <= 0.5 ? 1 : Math.max(1, initialized + (time - last > 100 ? -1 : 2));
-  last = time;
-  return window.customRequestAnimationFrame(prepareHtml5Logo);
-});
+
+function loadGameScript() {
+  startGameMenu();
+}

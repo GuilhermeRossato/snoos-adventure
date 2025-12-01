@@ -2,7 +2,7 @@
 // Tracks all loaded .js and .css files, stores their content, periodically refetches them
 // and reloads the page when a change is detected.
 
-(function () {
+(function () {return;
   function log(...args) {
     if (DEBUG)
       console.log('[liveWatcher]', ...args);

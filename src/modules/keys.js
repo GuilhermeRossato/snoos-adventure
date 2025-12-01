@@ -1,4 +1,4 @@
-import { camelCaseToSlug } from "./camelCaseToSlug.js";
+import { camelCaseToSlug } from "../camelCaseToSlug.js";
 
 const debug = true;
 
@@ -410,22 +410,21 @@ function handleKey(ev) {
   keys.emitKeyChange(prop, isDown);
 }
 
-window.addEventListener('keydown', handleKey);
-window.addEventListener('keyup', handleKey);
+export function initKeys() {
+    
+  window.addEventListener('keydown', handleKey);
+  window.addEventListener('keyup', handleKey);
 
-function handleMouseButton(ev) {
-  keys.emitMouseButton(ev);
+  function handleMouseButton(ev) {
+    keys.emitMouseButton(ev);
+  }
+  window.addEventListener('mousedown', handleMouseButton);
+  window.addEventListener('mouseup', handleMouseButton);
+
+  const handleMouseMove = (ev) => keys.emitMouseMove(ev);
+  window.addEventListener('mousemove', handleMouseMove);
+
+  window['keys'] = keys;
+
+  return keys;
 }
-window.addEventListener('mousedown', handleMouseButton);
-window.addEventListener('mouseup', handleMouseButton);
-
-window.addEventListener('mousemove', (ev) => {
-  keys.emitMouseMove(ev);
-});
-
-document.addEventListener('mousemove', (ev) => {
-  keys.emitMouseMove(ev);
-});
-
-window['keys'] = keys;
-

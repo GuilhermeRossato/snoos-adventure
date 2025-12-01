@@ -136,8 +136,11 @@ h1 {
   margin: 0;
   height: calc(5.17vw + 16px);
 }
-
-canvas#canvas {
+.canvas-wrapper {
+  overflow: visible;
+  max-height: 0;
+}
+#canvas_ctx, #canvas_webgl {
   width: 100%;
   max-width: min(min(70vw, 70vh), 960px);
   box-sizing: border-box;

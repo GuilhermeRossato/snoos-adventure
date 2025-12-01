@@ -96,12 +96,20 @@
             }
           </script>
           <div class="canvas-wrapper">
-            <canvas oncontextmenu="return false;" id="canvas" width="480" height="480"
+            <canvas oncontextmenu="return false;" id="canvas_ctx" width="480" height="480"
               style="width: 100%; max-width: min(min(70vw, 70vh), 960px); box-sizing: border-box;">The canvas from HTML5
               is not
               supported in your browser. I recommend using the latest version of Google Chrome to play this
               game.</canvas>
           </div>
+          <div class="canvas-wrapper">
+            <canvas oncontextmenu="return false;" id="canvas_webgl" width="480" height="480"
+              style="opacity: 0; pointer-events: none; width: 100%; max-width: min(min(70vw, 70vh), 960px); box-sizing: border-box;">The canvas from HTML5
+              is not
+              supported in your browser. I recommend using the latest version of Google Chrome to play this
+              game.</canvas>
+          </div>
+          <div class="canvas-spacer" style="height: calc(70vw + 16px); max-height: min(min(70vw, 70vh), 960px);"></div>
           <div class="middle-wrapper disabled">
             <div class="middle-content">
             </div>
@@ -113,7 +121,7 @@
                   rel="noopener noreferrer" style="filter: grayscale(1); font-weight: lighter;">Snoo</a>, the Reddit
                 mascot. I created it to give life to <a href="https://old.reddit.com/r/gamedev/" target="_blank"
                   rel="noopener noreferrer">/r/gamedev</a>'s
-                banner art found in the old version of reddit.</p>
+                banner art from the old days of reddit.</p>
               <p>Use the arrow keys or WASD to move Snoo
                 around
                 the levels, collect items, and avoid obstacles. Double-tap movement keys to run.</p>
@@ -138,37 +146,32 @@
       </div>
     </div>
   </div>
-<style>
-.overlay-centerize {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: rgba(0,0,0,0.8);
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.1s;
-  z-index: 9999;
-}
-#canvas {
-  position: relative;
-  z-index: 10000;
-}
-</style>
-<div class="overlay-centerize"></div>
-<script>
-function showOverlay() {
-  const overlay = document.querySelector('.overlay-centerize');
-  overlay.classList.add('active');
-  console.log('Overlay shown, opacity:', overlay.style.opacity);
-}
-function hideOverlay() {
-  const overlay = document.querySelector('.overlay-centerize');
-  overlay.classList.remove('active');
-  console.log('Overlay hidden, opacity:', overlay.style.opacity);
-}
-</script>
+  <style>
+    .overlay-centerize {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.8);
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.1s;
+      z-index: 9999;
+    }
+  </style>
+  <script>
+    function showOverlay() {
+      const overlay = document.querySelector('.overlay-centerize');
+      overlay.classList.add('active');
+      console.log('Overlay shown, opacity:', overlay.style.opacity);
+    }
+    function hideOverlay() {
+      const overlay = document.querySelector('.overlay-centerize');
+      overlay.classList.remove('active');
+      console.log('Overlay hidden, opacity:', overlay.style.opacity);
+    }
+  </script>
 
   <script src="./utils/liveWatcher.js"></script>
   <script type="module" src="./src/centerize.js"></script>

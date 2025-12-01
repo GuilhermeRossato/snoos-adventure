@@ -42,7 +42,7 @@ window.addEventListener('load', () => {
     // @ts-ignore
     document.querySelectorAll('.overlay-centerize').forEach((el) => el.style.opacity = opacity.toFixed(4));
   };
-  setInterval(updateOverlayOpacity, 300);
+  setTimeout(updateOverlayOpacity, 200);
   window.addEventListener('scroll', updateOverlayOpacity);
   window.addEventListener('wheel', updateOverlayOpacity);
   window.addEventListener('touchmove', updateOverlayOpacity);
