@@ -1,89 +1,77 @@
-import { initProgram } from "../initProgram.js";
 
-export const assets = {
-  menu: './assets/menuicons.png',
-  objects: './assets/objects.png',
-  tiles: './assets/tiles.png',
-  green: './assets/green.png',
-}
+import { createCanvasTexture } from "./textures.js";
 
 export const worldOffset = { x: 0, y: 0 };
 
-export const tileLookup = {
-  "stone": {
-    "texture": "./assets/stone.png",
-  },
-  "ice": {
-    "texture": "./src/tiles/ice.png",
-  },
-  "wood": {
-    "texture": "./assets/wood.png",
-  },
-}
+export async function initSprites(gl, atlasCanvas, textureLookup) {
+  console.log(gl.canvas.id, 'initSprites: starting');
+  const atlasTexture = await createCanvasTexture(atlasCanvas, gl);
+  SpriteBatch.textureCache.set(gl, atlasTexture);
+  const multi = createMultipleBatches(gl, textureLookup, atlasCanvas);
 
-export async function initSprites(gl, { atlasCanvas, textureLookup }) {
-  const program = await initProgram(gl);
-  const multi = createMultipleBatches(gl, atlasCanvas, textureLookup);
   return function render() {
-    gl.useProgram(program);
-    for (let b = 0; b < multi.batches.length; b++) {
-      const batch = multi.batches[b];
-      if (!batch) {
-        console.error('renderLoop: missing batch', 'batchIndex:', b);
-        continue;
+    try {
+      for (let b = 0; b < multi.batches.length; b++) {
+        const batch = multi.batches[b];
+        if (!batch) {
+          console.error('renderLoop: missing batch', 'batchIndex:', b);
+          continue;
+        }
+        const velocities = multi.velocities[b];
+        if (!velocities) {
+          console.error('renderLoop: missing velocities array', 'batchIndex:', b);
+          continue;
+        }
+        batch.render();
       }
-      const velocities = multi.velocitiesLists[b];
-      if (!velocities) {
-        console.error('renderLoop: missing velocities array', 'batchIndex:', b);
-        continue;
-      }
-      batch.render();
+      requestAnimationFrame(render);
+    } catch (error) {
+      console.error('renderLoop: error during render', 'message:', error && error.message);
     }
-    requestAnimationFrame(render);
   };
 }
 
-function createMultipleBatches(gl, atlasCanvas, lookup) {
+function createMultipleBatches(gl, lookup, atlasCanvas) {
   const displayCanvas = gl.canvas;
-  if (!gl || !displayCanvas || !atlasCanvas || !lookup) {
-    console.error('createMultipleBatches: missing params', 'glOk:', !!gl, 'displayCanvasOk:', !!displayCanvas, 'atlasOk:', !!atlasCanvas, 'lookupKeys:', Object.keys(lookup).length);
-    return null;
+  if (!gl || !displayCanvas || !lookup) {
+    console.error('createMultipleBatches: missing params', 'glOk:', !!gl, 'displayCanvasOk:', !!displayCanvas, 'lookupKeys:', Object.keys(lookup).length);
+    throw new Error('Invalid params');
   }
 
   if (!gl.getExtension('OES_texture_float')) {
     console.error('createMultipleBatches: Required WebGL extension OES_texture_float not supported');
-    return null;
+    throw new Error('Invalid state');
   }
 
   if (!gl.getParameter(gl.MAX_TEXTURE_SIZE)) {
     console.error('createMultipleBatches: Unable to retrieve MAX_TEXTURE_SIZE');
-    return null;
+    throw new Error('Invalid state');
   }
 
   const batches = [];
-  const velocitiesLists = [];
-  const BATCH_COUNT = 4;
+  const velocities = [];
+  const BATCH_COUNT = 1;
   for (let i = 0; i < BATCH_COUNT; i++) {
-    const batch = createBatch(gl, displayCanvas, atlasCanvas);
+    const batch = createBatch(gl, displayCanvas);
     if (!batch) {
       console.error('createMultipleBatches: batch create failed', 'i:', i);
       continue;
     }
-    const velocities = createSampleSprites(batch, lookup, displayCanvas);
-    if (!velocities || !velocities.length) {
+    const vel = createSampleSprites(batch, lookup, atlasCanvas);
+    if (!vel || !vel.length) {
       console.error('createMultipleBatches: sample sprites create failed', 'i:', i);
       continue;
     }
     batches.push(batch);
-    velocitiesLists.push(velocities);
+    velocities.push(vel);
     console.log('createMultipleBatches: batch created', 'i:', i, 'spriteCount:', batch.spriteCount);
   }
   if (batches.length === 0) {
     console.error('createMultipleBatches: no batches created');
-    return null;
+    throw new Error('Invalid batches length');
   }
   console.log('createMultipleBatches: done', 'batchesCreated:', batches.length);
-  return { batches, velocitiesLists };
+  return { batches, velocities };
 }
 
 export class SpriteBatch {
@@ -96,14 +84,14 @@ export class SpriteBatch {
   static UV_COMPONENTS = 2;
   static TINT_COMPONENTS = 4;
 
-  constructor(gl, canvasW, canvasH, texW, texH, maxSprites) {
+  constructor(gl, canvasW, canvasH, maxSprites) {
     console.log('SpriteBatch: constructing', maxSprites);
 
     this.gl = gl;
     this.canvasW = canvasW;
     this.canvasH = canvasH;
-    this.texW = texW;
-    this.texH = texH;
+    this.texW = NaN;
+    this.texH = NaN;
     this.maxSprites = maxSprites;
 
     this._floatsPerPosSprite = SpriteBatch.VERTS_PER_SPRITE * SpriteBatch.POS_COMPONENTS;
@@ -123,7 +111,7 @@ export class SpriteBatch {
     this._initializeBuffers();
     this._initializeTextures();
 
-    console.log('SpriteBatch: constructed', 'canvasW:', canvasW, 'canvasH:', canvasH, 'texW:', texW, 'texH:', texH, 'maxSprites:', maxSprites);
+    console.log('SpriteBatch: constructed', 'canvasW:', canvasW, 'canvasH:', canvasH, 'maxSprites:', maxSprites);
   }
 
   _initializeProgram() {
@@ -139,19 +127,23 @@ export class SpriteBatch {
       varying vec2 v_texcoord;
       varying vec4 v_tint;
       void main() {
-        gl_Position = vec4(a_position, 0, 1);
+        gl_Position = vec4(a_position, 0.0, 1.0);
         v_texcoord = a_texcoord;
         v_tint = a_tint;
       }
     `;
-
     const fragmentShaderSource = `
       precision mediump float;
       varying vec2 v_texcoord;
       varying vec4 v_tint;
       uniform sampler2D u_texture;
       void main() {
-        gl_FragColor = texture2D(u_texture, v_texcoord) * v_tint;
+        vec4 tex = texture2D(u_texture, v_texcoord);
+        // blend texture color with tint RGB using weight in v_tint.a
+        // result = mix(tex.rgb, tint.rgb, weight), preserve original alpha
+        float w = clamp(v_tint.a, 0.0, 1.0);
+        vec3 blended = mix(tex.rgb, v_tint.rgb, 0.5);
+        gl_FragColor = vec4(blended, tex.a);
       }
     `;
 
@@ -203,22 +195,45 @@ export class SpriteBatch {
   }
 
   _initializeTextures() {
-    if (SpriteBatch.textureCache.has(this.gl)) {
+    console.log('SpriteBatch: initializing textures');
+
+    this.gl.useProgram(this.program);
+
+    try {
       this.texture = SpriteBatch.textureCache.get(this.gl);
-      return;
+      if (!this.texture) {
+        console.error('SpriteBatch._initializeTextures: texture missing in cache');
+        throw new Error('Texture not found in cache');
+      }
+      this.texW = this.texture.width;
+      this.texH = this.texture.height;
+      this.gl.activeTexture(this.gl.TEXTURE0);
+      this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+      console.log('SpriteBatch._initializeTextures: texture bound', 'width:', this.texW, 'height:', this.texH);
+    } catch (err) {
+      console.error('SpriteBatch._initializeTextures: failed to initialize texture', 'error:', err && err.message);
+      throw err;
     }
 
-    this.texture = this.gl.createTexture();
-    this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_S, this.gl.CLAMP_TO_EDGE);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_WRAP_T, this.gl.CLAMP_TO_EDGE);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MIN_FILTER, this.gl.LINEAR);
-    this.gl.texParameteri(this.gl.TEXTURE_2D, this.gl.TEXTURE_MAG_FILTER, this.gl.LINEAR);
-
-    SpriteBatch.textureCache.set(this.gl, this.texture);
+    const uTexLoc = this.gl.getUniformLocation(this.program, 'u_texture');
+    if (!uTexLoc) {
+      console.error('init: uniform u_texture missing');
+      throw new Error('Attribute location failure');
+    }
+    this.gl.uniform1i(uTexLoc, 0);
+    console.log('init: uniform u_texture set', 'value:', 0);
   }
 
   createSprite(dstX, dstY, dstW, dstH, srcX, srcY, srcW, srcH, tint) {
+    if (isNaN(this.texW) || isNaN(this.texH)) {
+      const tex = SpriteBatch.textureCache.get(this.gl);
+      if (!tex) {
+        throw new Error('SpriteBatch.createSprite: missing texture in cache');
+      }
+      this.texture = tex;
+      this.texW = tex.width;
+      this.texH = tex.height;
+    }
     // console.log('SpriteBatch.createSprite: creating sprite', this.spriteCount);
     if (this.spriteCount >= this.maxSprites) {
       console.error('SpriteBatch.createSprite: capacity full', 'spriteCount:', this.spriteCount, 'maxSprites:', this.maxSprites);
@@ -235,9 +250,6 @@ export class SpriteBatch {
   }
   _getSprite(index) {
     return this._sprites[index] || null;
-  }
-  attachSpritesArray(arr) {
-    console.log('SpriteBatch.attachSpritesArray: deprecated call ignored', 'incomingLen:', arr.length);
   }
   updateSprite(index) {
     if (index < 0 || index >= this.spriteCount) {
@@ -309,10 +321,10 @@ export class SpriteBatch {
       'dstW:', spr.dstW, 'dstH:', spr.dstH, 'srcX:', spr.srcX, 'srcY:', spr.srcY, 'srcW:', spr.srcW, 'srcH:', spr.srcH, 'tint:', t);
   */  }
   uploadDirty() {
-    const gl = this.gl;
     if (this.dirty.size === 0) {
       return;
     }
+    const gl = this.gl;
     const indices = Array.from(this.dirty).sort((a, b) => a - b);
     let rangeStart = indices[0];
     let prev = rangeStart;
@@ -400,18 +412,22 @@ export class SpriteBatch {
     gl.drawArrays(gl.TRIANGLES, 0, this.spriteCount * 6);
   }
 
-  static create(gl, canvasW, canvasH, texW, texH, maxSprites) {
-    return new SpriteBatch(gl, canvasW, canvasH, texW, texH, maxSprites);
+  static create(gl, canvasW, canvasH, maxSprites) {
+    return new SpriteBatch(gl, canvasW, canvasH, maxSprites);
   }
 }
 
-function createBatch(gl, canvas, atlasCanvas, maxSprites = 128) {
-  if (!gl || !canvas || !atlasCanvas) {
-    console.error('createBatch: missing params', 'glOk:', !!gl, 'canvasOk:', !!canvas, 'atlasOk:', !!atlasCanvas);
+function createBatch(gl, canvas, maxSprites = 128) {
+  if (!gl || !canvas) {
+    console.error('createBatch: missing params', 'glOk:', !!gl, 'canvasOk:', !!canvas);
     return null;
   }
-
-  const batch = SpriteBatch.create(gl, canvas.width, canvas.height, atlasCanvas.width, atlasCanvas.height, maxSprites);
+  const atlasTexture = SpriteBatch.textureCache.get(gl);
+  if (!atlasTexture) {
+    console.error('createBatch: atlasTexture missing in cache');
+    return null;
+  }
+  const batch = SpriteBatch.create(gl, canvas.width, canvas.height, maxSprites);
 
   console.log('createBatch: batch ready', 'maxSprites:', maxSprites);
   return batch;
@@ -419,11 +435,10 @@ function createBatch(gl, canvas, atlasCanvas, maxSprites = 128) {
 
 export let sampleBatches = [];
 export let sampleBatch = null; // first batch kept for backward compatibility
-let sampleVelocitiesLists = []; // array of velocity arrays (per batch)
 
-function createSampleSprites(batch, lookup, canvas) {
-  if (!batch || !lookup || !canvas) {
-    console.error('createSampleSprites: missing params', 'batchOk:', !!batch, 'lookupKeys:', Object.keys(lookup).length, 'canvasOk:', !!canvas);
+function createSampleSprites(batch, lookup, atlasCanvas) {
+  if (!batch || !lookup || !atlasCanvas) {
+    console.error('createSampleSprites: missing params', 'batchOk:', !!batch, 'lookupKeys:', Object.keys(lookup).length, 'atlasCanvasOk:', !!atlasCanvas);
     return [];
   }
   const keys = Object.keys(lookup);
@@ -441,8 +456,8 @@ function createSampleSprites(batch, lookup, canvas) {
       console.error('createSampleSprites: info missing', 'key:', key);
       continue;
     }
-    const x = Math.floor(Math.random() * Math.max(0, canvas.width - info.w));
-    const y = Math.floor(Math.random() * Math.max(0, canvas.height - info.h));
+    const x = Math.floor(Math.random() * Math.max(0, atlasCanvas.width - info.w));
+    const y = Math.floor(Math.random() * Math.max(0, atlasCanvas.height - info.h));
     const spr = batch.createSprite(x, y, info.w, info.h, info.x, info.y, info.w, info.h, [1, 1, 1, 0]);
     if (!spr) {
       console.error('createSampleSprites: sprite create failed', 'i:', i);
@@ -507,7 +522,7 @@ function updateSprites(batch, velocities, dt, canvas) {
 //       console.error('renderLoop: missing batch', 'batchIndex:', b);
 //       continue;
 //     }
-//     const velocities = sampleVelocitiesLists[b];
+//     const velocities = samplevelocities[b];
 //     if (!velocities) {
 //       console.error('renderLoop: missing velocities array', 'batchIndex:', b);
 //       continue;

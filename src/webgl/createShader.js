@@ -1,4 +1,7 @@
 export function createShader(gl, type, src) {
+  if (src.length < 48) {
+    throw new Error(`Invalid shader source: ${JSON.stringify(src)}`);
+  }
   const sh = gl.createShader(type);
   if (!sh) {
     console.error('gl.createShader failed', 'type:', type);

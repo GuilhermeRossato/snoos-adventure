@@ -8,6 +8,7 @@ import { initGL } from "./modules/webgl.js";
 import { initTextures } from "./modules/textures.js";
 import { initSprites } from "./modules/sprites.js";
 import { executeConcurrently as executeConcurrently } from "../utils/executeConcurrently.js";
+import { sleep } from "../utils/sleep.js";
 
 const width = 480;
 const height = 480;
@@ -18,7 +19,11 @@ let canvas;
 /** @type {CanvasRenderingContext2D} */
 let ctx;
 
+/** @type {WebGL2RenderingContext} */
+let gl;
+
 export const initState = {
+  gl,
   active: false,
   start: 0,
   time: 0,
@@ -39,18 +44,33 @@ async function init() {
       requestAnimationFrame(showHtml5Logo);
     }
   }
-  const [
-    textures,
-    keys,
-    maps,
-    gl,
-  ] = await executeConcurrently([
-    initTextures,
-    initKeys,
-    initMaps,
-    initGL,
-  ]);
-  const render = await initSprites(gl, textures);
+  const initialRecord = {
+    keys: initKeys,
+    maps: initMaps,
+    textures: initTextures,
+    gl: initGL
+  };
+  const loadedInitialEntries = await executeConcurrently(Object.entries(initialRecord).map(([key, func]) => async () => [key, await func()]));
+  const initialRecordLoaded = Object.fromEntries(loadedInitialEntries);
+for (const key in initialRecordLoaded) {
+  if (!initialRecordLoaded[key] && initialRecordLoaded[key] !== false) {
+    console.error(`init: module initialization failed`, 'module:', key);
+    throw new Error(`Module initialization failed: ${key}`);
+  }
+}
+  gl = initialRecordLoaded.gl;
+  if (!gl) {
+    console.error('init: gl initialization failed');
+    return;
+  }
+  initState.gl = gl;
+  const {
+    atlasCanvas,
+    textureLookup,
+  } = await initTextures(gl);
+  await sleep(100);
+  await maps.loadAllMaps();
+  const render = await initSprites(gl, atlasCanvas, textureLookup);
   console.log('init: All modules initialized');
   initState.active = false;
   let t = setInterval(() => {
@@ -60,7 +80,6 @@ async function init() {
     clearInterval(t);
     requestAnimationFrame(render);
   }, 100);
-  return;
 }
 
 init().then(r => (r !== undefined) && console.log("init() return:", r)).catch(err => { console.log(err);  });
@@ -82,7 +101,11 @@ function showHtml5Logo(time) {
   if (initState.time > 3600) {
     initState.time = 3600;
     initState.done = true;
-    loadGameScript();
+    try {
+      startGameMenu(time, initState.gl);
+    } catch (err) {
+      console.error('showHtml5Logo: startGameMenu failed', 'errMsg:', err && err.message);
+    }
     return;
   }
   requestAnimationFrame(showHtml5Logo);
@@ -107,7 +130,3 @@ function renderHtml5Logo(time) {
   }
 }
 
-
-function loadGameScript() {
-  startGameMenu();
-}

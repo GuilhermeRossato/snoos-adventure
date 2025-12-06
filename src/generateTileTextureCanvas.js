@@ -1,58 +1,78 @@
+import { sleep } from "../utils/sleep.js";
 import { loadImage } from "./loadImage.js";
 
-export async function loadAndPackTileTextures(textureLookup, tileLookup) {
+export async function generateTileTextureCanvas(tileLookup, textureLookup = {}) {
   const debug = false;
 
   debug && console.log('start', 'typeCount:', Object.keys(tileLookup).length);
 
-  const keys = Object.keys(tileLookup);
-  if (keys.length === 0) {
-    debug && console.log('no types present', 'keysLen:', keys.length);
-    return { canvas: null, lookup: textureLookup };
+  const tileNames = Object.keys(tileLookup);
+  if (tileNames.length === 0) {
+    debug && console.log('no types present', 'keysLen:', tileNames.length);
+    throw new Error('Could not generate tile texture canvas');
   }
-  const images = [];
-  for (let i = 0; i < keys.length; i++) {
-    const key = keys[i];
-    const texPath = tileLookup[key] && tileLookup[key].texture;
-    if (!texPath) {
-      console.error('loadTextures: missing texture path', 'key:', key);
-      continue;
-    }
-    try {
-      const img = await loadImage(texPath);
-      images.push({ key, img });
-      debug && console.log('image loaded', 'index:', i, 'key:', key,
-        'imgW:', img.width, 'imgH:', img.height, 'file:', JSON.stringify(texPath).slice(0, 16), 'len:', texPath.length);
-    } catch (err) {
-      console.error('loadTextures: load failed', 'key:', key, 'file:', JSON.stringify(texPath).slice(0, 16),
-        'len:', texPath.length, 'errMsg:', err && err.message);
-      continue;
-    }
-  }
-  if (images.length === 0) {
-    console.error('loadTextures: no images loaded', 'requested:', keys.length);
-    return { canvas: null, lookup: textureLookup };
+  const chunkSize = 8;
+  const loadImageChunks = [];
+
+  for (let i = 0; i < tileNames.length; i += chunkSize) {
+    const chunkKeys = tileNames.slice(i, i + chunkSize);
+    const chunkPromises = chunkKeys.map(async names => {
+      const texPath = typeof tileLookup[names] === 'string' || (tileLookup[names] && tileLookup[names] instanceof Array) ? tileLookup[names] : tileLookup[names] && (tileLookup[names].texture || tileLookup[names].textures);
+      if (!texPath) {
+        console.error('loadTextures: missing texture path', 'key:', names);
+        return null;
+      }
+      try {
+        const names = texPath instanceof Array ? texPath : [texPath];
+        const paths = names.map(p => p.includes('/') ? p : `./assets/tiles/${p}`);
+        const imgs = await Promise.all(paths.map(path => loadImage(path)));
+        return { key: names, imgs };
+      } catch (err) {
+        console.error('loadTextures: load failed', 'key:', names, 'file:', JSON.stringify(texPath).slice(0, 16),
+          'len:', texPath.length, 'errMsg:', err && err.message);
+        return null;
+      }
+    });
+
+    loadImageChunks.push(Promise.all(chunkPromises));
   }
 
+  const validImages = [];
   // Dynamic packing (16x16 cell grid)
   const CELL = 16;
   let totalCells = 0;
-  const validImages = [];
-  for (const it of images) {
-    const w = it.img.width;
-    const h = it.img.height;
-    if ((w % CELL) !== 0 || (h % CELL) !== 0) {
-      console.error('loadTextures: image size not multiple of 16 -> skipped', 'key:', it.key, 'w:', w, 'h:', h);
-      continue;
+  try {
+    const chunkedResults = await Promise.all(loadImageChunks);
+    const images = chunkedResults.flat().filter(Boolean);
+
+    if (images.length === 0) {
+      console.error('loadTextures: no images loaded', 'requested:', tileNames.length);
+      throw new Error('Could not generate tile texture canvas');
     }
-    const wc = w / CELL;
-    const hc = h / CELL;
-    totalCells += wc * hc;
-    validImages.push({ key: it.key, img: it.img, w, h, wc, hc });
+
+    for (const { imgs, key } of images) {
+      for (let index = 0; index < imgs.length; index++) {
+        const img = imgs[index];
+        const w = img?.width;
+        const h = img?.height;
+        if ((w % CELL) !== 0 || (h % CELL) !== 0) {
+          console.error('loadTextures: image size not multiple of 16 -> skipped', 'key:', key, 'w:', w, 'h:', h);
+          continue;
+        }
+        const wc = w / CELL;
+        const hc = h / CELL;
+        totalCells += wc * hc;
+        validImages.push({ key: key, index, img: img, w, h, wc, hc });
+      }
+    }
+  } catch (error) {
+    console.error('Error loading images:', error);
+    throw error;
   }
+
   if (validImages.length === 0) {
-    console.error('loadTextures: no valid images after size filtering', 'incoming:', images.length);
-    return { canvas: null, lookup: textureLookup };
+    console.error('loadTextures: no valid images after size filtering', 'incoming:', tileNames.length);
+    throw new Error('Could not generat tile texture canvas');
   }
 
   // Choose atlas width in cells (square-ish)
@@ -174,7 +194,7 @@ export async function loadAndPackTileTextures(textureLookup, tileLookup) {
       'u0:', textureLookup[p.key].u0.toFixed(4), 'v0:', textureLookup[p.key].v0.toFixed(4),
       'u1:', textureLookup[p.key].u1.toFixed(4), 'v1:', textureLookup[p.key].v1.toFixed(4));
   }
-
+  await sleep(100);
   debug && console.log('complete', 'drawnCount:', placements.length, 'lookupKeys:', Object.keys(textureLookup).length);
-  return { atlasCanvas, textureLookup };
+  return atlasCanvas;
 }

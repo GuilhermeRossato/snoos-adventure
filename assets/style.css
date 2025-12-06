@@ -200,3 +200,19 @@ h1 {
   overflow: auto;
   padding: 20px;
 }
+
+.snoo-top {
+  display: inline-block;
+  width: 0px;
+  max-width: 0px;
+  overflow: visible
+}
+
+.snoo-top > * {
+  transform: translate(9px, -22px) scale(2);
+  image-rendering: pixelated;
+  display: inline-block;
+  /* width: 13px; */
+  /* height: 16px; */
+  background-size: contain;
+}

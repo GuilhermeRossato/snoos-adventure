@@ -11,11 +11,11 @@ let canvas;
 let gl;
 
 /** @type {SpriteBatch} */
-let spriteBatch;                                                                                                                                                                                            
+let spriteBatch;
 
 function initializeSpriteBatch(gl, canvas) {
   const maxSprites = 1000; // Example value
-  spriteBatch = new SpriteBatch(gl, canvas.width, canvas.height, 1024, 1024, maxSprites);
+  spriteBatch = new SpriteBatch(gl, canvas.width, canvas.height, maxSprites);
   console.log('SpriteBatch initialized:', spriteBatch);
 
   // Add a few sprites
@@ -36,7 +36,7 @@ function renderLoop(time) {
   const dt = menuState.last ? (time - menuState.last) / 1000 : 0;
   menuState.last = time;
   menuState.active = true;
-  
+
   gl.clear(gl.COLOR_BUFFER_BIT);
   const sampleBatches = [spriteBatch]; // Example array of sprite batches
   const sampleVelocitiesLists = [
@@ -58,20 +58,34 @@ function renderLoop(time) {
   requestAnimationFrame(renderLoop);
 }
 
-export function startGameMenu(time) {
+export function startGameMenu(time, glExt) {
+  if (glExt) {
+    gl = glExt;
+  }
   if (!menuState.active) {
     menuState.last = time;
     menuState.time = 0;
     menuState.active = true;
-    canvas = document.querySelector('canvas#canvas_webgl');
-    if (!canvas||!(canvas instanceof HTMLCanvasElement)) {
+    if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
+      canvas = document.querySelector('canvas#canvas_webgl');
+    }
+    if (!canvas || !(canvas instanceof HTMLCanvasElement)) {
       throw new Error('Canvas webgl element not found');
     }
-    gl = canvas.getContext('webgl');
+    if (!gl) {
+      gl = canvas.getContext('webgl');
+    }
     if (!gl) {
       throw new Error('WebGL context not available');
     }
+    canvas.style.opacity = '1';
+    canvas.style.pointerEvents = 'all';
     initializeSpriteBatch(gl, canvas);
+    const otherCanvas = document.querySelector('canvas#canvas_ctx');
+    if (otherCanvas && otherCanvas instanceof HTMLCanvasElement) {
+      otherCanvas.style.opacity = '0';
+      otherCanvas.style.pointerEvents = 'none';
+    }
     requestAnimationFrame(renderLoop);
   }
 }

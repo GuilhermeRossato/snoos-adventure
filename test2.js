@@ -1,16 +1,15 @@
 'use strict';
 
-console.log = () => { }
-
+//console.log = () => { }
 const types = {
   "stone": {
-    "texture": "./assets/stone.png",
+    "texture": "./tiles/stone.png",
   },
   "ice": {
-    "texture": "./assets/ice.png",
+    "texture": "./tiles/ice.png",
   },
   "wood": {
-    "texture": "./assets/wood.png",
+    "texture": "./tiles/wood.png",
   },
 }
 
@@ -205,13 +204,15 @@ function isPowerOf2(v) {
 const vertexSrc = `
   attribute vec2 a_position;
   attribute vec2 a_texcoord;
-  // per-vertex tint: rgb + weight packed as vec4 (r,g,b,weight)
   attribute vec4 a_tint;
+  attribute vec4 a_split; // split factor in .r, others zero
   varying vec2 v_texcoord;
   varying vec4 v_tint;
+  varying vec4 v_split;
   void main() {
     v_texcoord = a_texcoord;
     v_tint = a_tint;
+    v_split = a_split;
     gl_Position = vec4(a_position, 0.0, 1.0);
   }
 `;
@@ -220,14 +221,15 @@ const fragmentSrc = `
   precision mediump float;
   uniform sampler2D u_texture;
   varying vec2 v_texcoord;
-  varying vec4 v_tint; // rgb + weight
+  varying vec4 v_tint;
+  varying vec4 v_split;
   void main() {
     vec4 tex = texture2D(u_texture, v_texcoord);
-    // blend texture color with tint RGB using weight in v_tint.a
-    // result = mix(tex.rgb, tint.rgb, weight), preserve original alpha
     float w = clamp(v_tint.a, 0.0, 1.0);
     vec3 blended = mix(tex.rgb, v_tint.rgb, w);
-    gl_FragColor = vec4(blended, tex.a);
+    float splitFactor = clamp(v_split.r, 0.0, 1.0);
+    // expose splitFactor in red channel, keep original G,B and alpha
+    gl_FragColor = vec4(splitFactor, blended.g, blended.b, tex.a);
   }
 `;
 
@@ -523,11 +525,38 @@ async function init() {
   }
   console.log('init: found canvas', 'id:', canvas.id || null, 'clientW:', canvas.clientWidth, 'clientH:', canvas.clientHeight);
 
-  const gl = canvas.getContext('webgl');
-  if (!gl) {
+  const gl2 = canvas.getContext('webgl');
+  if (!gl2) {
     console.error('init: WebGL not supported');
     return;
   }
+const gl = new Proxy(gl2, {
+  get(target, prop, receiver) {
+    const list = (window['_order'] = (window['_order'] || []));
+    list.push(prop);
+    const value = Reflect.get(target, prop, receiver);
+    if (typeof value === 'function') {
+      return function (...args) {
+        const list = (window['_args'] = (window['_args'] || []));
+        list.push({prop, args});
+        if (!target||!prop||!receiver) {
+          console.error('Proxy: invalid context for method', 'name:', prop);
+        }
+        console.log('Proxy: method access', 'name:', prop, 'args:', args);
+        try {
+          const result = value.apply(gl2, args);
+          console.log('Proxy: method result', 'name:', prop, 'result:', result);
+          return result;
+        } catch (err) {
+          console.error('Proxy: method error', 'name:', prop, 'errMsg:', err && err.message);
+          throw err;
+        }
+      };
+    }
+    console.log('Proxy: property access', 'name:', prop, 'value:', value);
+    return value;
+  }
+});
   console.log('init: obtained WebGL context');
 
   const dpr = window.devicePixelRatio || 1;

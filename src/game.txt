@@ -1,5 +1,6 @@
 import { g } from "../utils/g.js";
 import { initState } from "./init.js";
+import { initProgram } from "./initProgram.js";
 import { logPerf } from "./perf.js";
 
 const assets = {
@@ -96,7 +97,7 @@ class SpriteBatch {
 
   constructor(gl, canvasW, canvasH, texW, texH, maxSprites) {
     console.log('SpriteBatch: constructing', maxSprites);
-
+throw new Error('Debug stop');
     this.gl = gl;
     this.canvasW = canvasW;
     this.canvasH = canvasH;
@@ -129,34 +130,7 @@ class SpriteBatch {
       this.program = SpriteBatch.programCache.get(this.gl);
       return;
     }
-
-    const vertexShaderSource = `
-      attribute vec2 a_position;
-      attribute vec2 a_texcoord;
-      attribute vec4 a_tint;
-      varying vec2 v_texcoord;
-      varying vec4 v_tint;
-      void main() {
-        gl_Position = vec4(a_position, 0, 1);
-        v_texcoord = a_texcoord;
-        v_tint = a_tint;
-      }
-    `;
-
-    const fragmentShaderSource = `
-      precision mediump float;
-      varying vec2 v_texcoord;
-      varying vec4 v_tint;
-      uniform sampler2D u_texture;
-      void main() {
-        gl_FragColor = texture2D(u_texture, v_texcoord) * v_tint;
-      }
-    `;
-
-    const vertexShader = this._compileShader(this.gl.VERTEX_SHADER, vertexShaderSource);
-    const fragmentShader = this._compileShader(this.gl.FRAGMENT_SHADER, fragmentShaderSource);
-
-    this.program = this._linkProgram(vertexShader, fragmentShader);
+    this.program = initProgram(this.gl);
     SpriteBatch.programCache.set(this.gl, this.program);
   }
 
@@ -622,7 +596,7 @@ function startRenderLoop(gl, canvas) {
 //   }
 //   sampleBatches = multi.batches;
 //   sampleBatch = sampleBatches[0];
-//   sampleVelocitiesLists = multi.velocitiesLists;
+//   sampleVelocitiesLists = multi.velocities;
 //   if (!sampleVelocitiesLists.length) {
 //     console.error('postTextureLoad: velocity lists empty');
 //     return;
