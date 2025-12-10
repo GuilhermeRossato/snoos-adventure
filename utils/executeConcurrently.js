@@ -5,6 +5,7 @@
  * @returns {Promise<Array>} - Resolves with array of results.
  */
 export async function executeConcurrently(tasks) {
+  const debug = false;
   if (!Array.isArray(tasks)) {
     console.log('parallel: tasks is not an array', { tasks });
     return [];
@@ -13,7 +14,7 @@ export async function executeConcurrently(tasks) {
     const promises = tasks.map((fn, i) => {
       try {
         const result = fn();
-        console.log(`parallel: task[${i}] started`);
+        debug && console.log(`parallel: task[${i}] started`);
         return result;
       } catch (err) {
         console.log(`parallel: task[${i}] threw synchronously`, err);
@@ -23,7 +24,7 @@ export async function executeConcurrently(tasks) {
     const results = await Promise.allSettled(promises);
     results.forEach((res, i) => {
       if (res.status === 'fulfilled') {
-        console.log(`parallel: task[${i}] fulfilled`, res.value);
+        debug && console.log(`parallel: task[${i}] fulfilled`, res.value);
       } else {
         console.log(`parallel: task[${i}] rejected`, res.reason);
       }

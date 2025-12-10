@@ -1,16 +1,46 @@
-import { generateTileTextureCanvas } from "../generateTileTextureCanvas.js";
+import { generateTileTextureCanvas, loadTileImages } from "../generateTileTextureCanvas.js";
 import { tileTextures } from "./tiles.js";
 
+export const textureState = {
+  images: [],
+  totalCells: 0,
+  cellSize: 0,
+};
+
+/**
+ * @type {Record<string, { x: number; y: number; w: number; h: number; u0: number; v0: number; u1: number; v1: number; }>}
+ */
 export const textureLookup = {};
 
 export async function initTextures() {
-  const atlasCanvas = await generateTileTextureCanvas(tileTextures, textureLookup);
-  console.log('initTextures: atlasCanvas created', 'width:', atlasCanvas.width, 'height:', atlasCanvas.height);
-  return {                                                                
-    atlasCanvas,
+  const { validImages, totalCells, cellSize } = await loadTileImages(tileTextures);
+  textureState.images = validImages;
+  textureState.totalCells = totalCells;
+  if (!totalCells) {
+    throw new Error('initTextures: no tile textures total cells')
+  }
+  textureState.cellSize = cellSize;
+  if (!cellSize) {
+    throw new Error('initTextures: no cell size')
+  }
+}
+
+export async function loadTextures() {
+  const obj = await generateTileTextureCanvas(textureState.images,
+    textureState.totalCells,
+    textureState.cellSize,
+    textureLookup,
+  );
+  textureState.atlasCanvas = obj.atlasCanvas;
+  if (obj.textureLookup !== textureLookup) {
+    Object.assign(textureLookup, obj.textureLookup);
+  }
+  console.log('initTextures: atlasCanvas created', 'width:', obj.atlasCanvas.width, 'height:', obj.atlasCanvas.height);
+  return {
+    atlasCanvas: obj.atlasCanvas,
     textureLookup,
   };
-}
+};
 
 function isPowerOf2(v) {
   return (v & (v - 1)) === 0 && v !== 0;
@@ -27,6 +57,10 @@ export async function createCanvasTexture(canvas, gl) {
     console.error('createCanvasTexture: missing gl context');
     return null;
   }
+  (canvas.width % 16 !== 0) && console.warn('createCanvasTexture: canvas width is not multiple of 16', 'width:', canvas.width);
+  (canvas.height % 16 !== 0) && console.warn('createCanvasTexture: canvas height is not multiple of 16', 'height:', canvas.height);
+  const texW = canvas.width;
+  const texH = canvas.height;
   const tex = gl.createTexture();
   if (!tex) {
     console.error('gl.createTexture failed');
@@ -42,8 +76,8 @@ export async function createCanvasTexture(canvas, gl) {
     console.error('texImage2D failed', 'errMsg:', err && err.message);
     return null;
   }
-  const pot = isPowerOf2(canvas.width) && isPowerOf2(canvas.height);
-  
+  const pot = isPowerOf2(texW) && isPowerOf2(texH);
+
   if (pot) {
     console.log('image dimensions are power of two');
     gl.generateMipmap(gl.TEXTURE_2D);

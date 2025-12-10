@@ -1,11 +1,8 @@
 import { sleep } from "../utils/sleep.js";
 import { loadImage } from "./loadImage.js";
 
-export async function generateTileTextureCanvas(tileLookup, textureLookup = {}) {
+export async function loadTileImages(tileLookup) {
   const debug = false;
-
-  debug && console.log('start', 'typeCount:', Object.keys(tileLookup).length);
-
   const tileNames = Object.keys(tileLookup);
   if (tileNames.length === 0) {
     debug && console.log('no types present', 'keysLen:', tileNames.length);
@@ -23,8 +20,8 @@ export async function generateTileTextureCanvas(tileLookup, textureLookup = {}) 
         return null;
       }
       try {
-        const names = texPath instanceof Array ? texPath : [texPath];
-        const paths = names.map(p => p.includes('/') ? p : `./assets/tiles/${p}`);
+        const namesArr = texPath instanceof Array ? texPath : [texPath];
+        const paths = namesArr.map(p => p.includes('/') ? p : `./assets/tiles/${p}`);
         const imgs = await Promise.all(paths.map(path => loadImage(path)));
         return { key: names, imgs };
       } catch (err) {
@@ -39,7 +36,7 @@ export async function generateTileTextureCanvas(tileLookup, textureLookup = {}) 
 
   const validImages = [];
   // Dynamic packing (16x16 cell grid)
-  const CELL = 16;
+  const cellSize = 16;
   let totalCells = 0;
   try {
     const chunkedResults = await Promise.all(loadImageChunks);
@@ -55,14 +52,14 @@ export async function generateTileTextureCanvas(tileLookup, textureLookup = {}) 
         const img = imgs[index];
         const w = img?.width;
         const h = img?.height;
-        if ((w % CELL) !== 0 || (h % CELL) !== 0) {
+        if ((w % cellSize) !== 0 || (h % cellSize) !== 0) {
           console.error('loadTextures: image size not multiple of 16 -> skipped', 'key:', key, 'w:', w, 'h:', h);
           continue;
         }
-        const wc = w / CELL;
-        const hc = h / CELL;
+        const wc = w / cellSize;
+        const hc = h / cellSize;
         totalCells += wc * hc;
-        validImages.push({ key: key, index, img: img, w, h, wc, hc });
+        validImages.push({ key, index, img, w, h, wc, hc });
       }
     }
   } catch (error) {
@@ -72,9 +69,14 @@ export async function generateTileTextureCanvas(tileLookup, textureLookup = {}) 
 
   if (validImages.length === 0) {
     console.error('loadTextures: no valid images after size filtering', 'incoming:', tileNames.length);
-    throw new Error('Could not generat tile texture canvas');
+    throw new Error('Could not generate tile texture canvas');
   }
 
+  return { validImages, totalCells, cellSize };
+}
+
+export async function generateTileTextureCanvas(validImages, totalCells, CELL, textureLookup = {}) {
+  const debug = false;
   // Choose atlas width in cells (square-ish)
   const sideCells = Math.max(1, Math.ceil(Math.sqrt(totalCells)));
   const atlasCellsW = sideCells;
@@ -147,7 +149,7 @@ export async function generateTileTextureCanvas(tileLookup, textureLookup = {}) 
   const atlasH = rows * CELL;
   debug && console.log('final atlas size', 'atlasW:', atlasW, 'atlasH:', atlasH, 'rows:', rows, 'placements:', placements.length);
   /** @type {HTMLCanvasElement} */ // @ts-ignore
-  let atlasCanvas = document.getElementById('texture_atlas_canvas');
+  let atlasCanvas = document.getElementById('canvas_atlas');
   if (atlasCanvas) {
     if (atlasCanvas.width !== atlasW || atlasCanvas.height !== atlasH) {
       atlasCanvas.width = atlasW;
@@ -158,7 +160,7 @@ export async function generateTileTextureCanvas(tileLookup, textureLookup = {}) 
     }
   } else {
     atlasCanvas = document.createElement('canvas');
-    atlasCanvas.id = 'texture_atlas_canvas';
+    atlasCanvas.id = 'canvas_atlas';
     atlasCanvas.width = atlasW;
     atlasCanvas.height = atlasH;
     if (document.body) {
@@ -171,7 +173,7 @@ export async function generateTileTextureCanvas(tileLookup, textureLookup = {}) 
   const ctx = atlasCanvas.getContext('2d');
   if (!ctx) {
     console.error('loadTextures: 2d context creation failed');
-    return { canvas: atlasCanvas, lookup: textureLookup };
+    return { atlasCanvas, textureLookup };
   }
   ctx.clearRect(0, 0, atlasCanvas.width, atlasCanvas.height);
   debug && console.log('canvas cleared', 'w:', atlasCanvas.width, 'h:', atlasCanvas.height);
@@ -196,5 +198,5 @@ export async function generateTileTextureCanvas(tileLookup, textureLookup = {}) 
   }
   await sleep(100);
   debug && console.log('complete', 'drawnCount:', placements.length, 'lookupKeys:', Object.keys(textureLookup).length);
-  return atlasCanvas;
+  return { atlasCanvas, textureLookup };
 }

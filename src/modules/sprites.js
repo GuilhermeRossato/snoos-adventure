@@ -1,16 +1,39 @@
-
-import { createCanvasTexture } from "./textures.js";
+import { loadMaps } from "./maps.js";
+import { createCanvasTexture, textureLookup } from "./textures.js";
+import { tileTextures } from "./tiles.js";
 
 export const worldOffset = { x: 0, y: 0 };
 
-export async function initSprites(gl, atlasCanvas, textureLookup) {
-  console.log(gl.canvas.id, 'initSprites: starting');
-  const atlasTexture = await createCanvasTexture(atlasCanvas, gl);
-  SpriteBatch.textureCache.set(gl, atlasTexture);
-  const multi = createMultipleBatches(gl, textureLookup, atlasCanvas);
+/**
+ * 
+ * @param {typeof import('./../init.js').initState} initState 
+ * @param {typeof import('./rendering.js').renderingState} renderingState 
+ * @returns 
+ */
+export async function initSprites(initState, renderingState) {
+  const displayGL = renderingState.displayGL;
+  const displayCanvas = renderingState.displayGL.canvas;
+  const atlasCanvas = renderingState.atlasCtx.canvas;
+
+  console.log('initSprites: starting', 'atlasCanvas:', atlasCanvas.width, 'x', atlasCanvas.height, 'displayCanvas:', displayCanvas.width, 'x', displayCanvas.height);
+  const atlasTexture = await createCanvasTexture(atlasCanvas, displayGL);
+
+  SpriteBatch.textureCache.set(displayGL, {
+    texture: atlasTexture,
+    width: atlasCanvas.width,
+    height: atlasCanvas.height
+  });
+  const maps = await loadMaps();
+  initState.maps = maps;
+  const multi = createMultipleBatches(displayGL, textureLookup, atlasCanvas);
+  // Expose created batches for external creation of sprites (e.g., maps)
+  multi.batches = multi && Array.isArray(multi.batches) ? multi.batches : [];
+  const sampleBatch = multi.batches.length > 0 ? multi.batches[0] : null;
+  console.log('initSprites: sample batches exposed', 'batches:', multi.batches.length, 'hasSampleBatch:', !!sampleBatch);
 
   return function render() {
     try {
+      displayGL.clear(displayGL.COLOR_BUFFER_BIT);
       for (let b = 0; b < multi.batches.length; b++) {
         const batch = multi.batches[b];
         if (!batch) {
@@ -21,6 +44,15 @@ export async function initSprites(gl, atlasCanvas, textureLookup) {
         if (!velocities) {
           console.error('renderLoop: missing velocities array', 'batchIndex:', b);
           continue;
+        }
+        const sprites = batch._sprites;
+        if (!batch || !velocities || !sprites) {
+          console.log('frame: missing batch/velocities/sprites', 'batchIdx:', b,
+            'batch:', !!batch, 'velocities:', !!velocities, 'sprites:', !!sprites);
+          continue;
+        }
+        for (let i = 0; i < sprites.length; i++) {
+          batch.updateSprite(i);
         }
         batch.render();
       }
@@ -33,6 +65,7 @@ export async function initSprites(gl, atlasCanvas, textureLookup) {
 
 function createMultipleBatches(gl, lookup, atlasCanvas) {
   const displayCanvas = gl.canvas;
+
   if (!gl || !displayCanvas || !lookup) {
     console.error('createMultipleBatches: missing params', 'glOk:', !!gl, 'displayCanvasOk:', !!displayCanvas, 'lookupKeys:', Object.keys(lookup).length);
     throw new Error('Invalid params');
@@ -50,14 +83,14 @@ function createMultipleBatches(gl, lookup, atlasCanvas) {
 
   const batches = [];
   const velocities = [];
-  const BATCH_COUNT = 1;
-  for (let i = 0; i < BATCH_COUNT; i++) {
+  const batchCount = 1;
+  for (let i = 0; i < batchCount; i++) {
     const batch = createBatch(gl, displayCanvas);
     if (!batch) {
       console.error('createMultipleBatches: batch create failed', 'i:', i);
       continue;
     }
-    const vel = createSampleSprites(batch, lookup, atlasCanvas);
+    const vel = createSampleSprites(batch, lookup, displayCanvas);
     if (!vel || !vel.length) {
       console.error('createMultipleBatches: sample sprites create failed', 'i:', i);
       continue;
@@ -108,14 +141,15 @@ export class SpriteBatch {
     this.offset = { x: 0, y: 0 };
 
     this._initializeProgram();
-    this._initializeBuffers();
     this._initializeTextures();
+    this._initializeBuffers();
 
     console.log('SpriteBatch: constructed', 'canvasW:', canvasW, 'canvasH:', canvasH, 'maxSprites:', maxSprites);
   }
 
   _initializeProgram() {
     if (SpriteBatch.programCache.has(this.gl)) {
+      console.log('SpriteBatch: using cached program');
       this.program = SpriteBatch.programCache.get(this.gl);
       return;
     }
@@ -142,7 +176,7 @@ export class SpriteBatch {
         // blend texture color with tint RGB using weight in v_tint.a
         // result = mix(tex.rgb, tint.rgb, weight), preserve original alpha
         float w = clamp(v_tint.a, 0.0, 1.0);
-        vec3 blended = mix(tex.rgb, v_tint.rgb, 0.5);
+        vec3 blended = mix(tex.rgb, v_tint.rgb, w);
         gl_FragColor = vec4(blended, tex.a);
       }
     `;
@@ -200,39 +234,49 @@ export class SpriteBatch {
     this.gl.useProgram(this.program);
 
     try {
-      this.texture = SpriteBatch.textureCache.get(this.gl);
+      const o = SpriteBatch.textureCache.get(this.gl);
+      this.texture = o && o.texture;
+
       if (!this.texture) {
         console.error('SpriteBatch._initializeTextures: texture missing in cache');
         throw new Error('Texture not found in cache');
       }
-      this.texW = this.texture.width;
-      this.texH = this.texture.height;
-      this.gl.activeTexture(this.gl.TEXTURE0);
-      this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
+      this.texW = o.width;
+      this.texH = o.height;
+      if (!this.texH || !this.texW) {
+        console.error('SpriteBatch._initializeTextures: texture size empty', 'width:', this.texW, 'height:', this.texH);
+        throw new Error(['Texture not found', 'width:', this.texW, 'height:', this.texH].join(' '));
+      }
+      // this.gl.activeTexture(this.gl.TEXTURE0);
+      // this.gl.bindTexture(this.gl.TEXTURE_2D, this.texture);
       console.log('SpriteBatch._initializeTextures: texture bound', 'width:', this.texW, 'height:', this.texH);
     } catch (err) {
       console.error('SpriteBatch._initializeTextures: failed to initialize texture', 'error:', err && err.message);
       throw err;
     }
 
-    const uTexLoc = this.gl.getUniformLocation(this.program, 'u_texture');
-    if (!uTexLoc) {
-      console.error('init: uniform u_texture missing');
-      throw new Error('Attribute location failure');
-    }
-    this.gl.uniform1i(uTexLoc, 0);
-    console.log('init: uniform u_texture set', 'value:', 0);
+    // const uTexLoc = this.gl.getUniformLocation(this.program, 'u_texture');
+    // if (!uTexLoc) {
+    //   console.error('init: uniform u_texture missing');
+    //   throw new Error('Attribute location failure');
+    // }
+    // console.log('Updated u text loc');
+    // this.gl.uniform1i(uTexLoc, 0);
+    // console.log('init: uniform u_texture set', 'value:', 0);
   }
 
   createSprite(dstX, dstY, dstW, dstH, srcX, srcY, srcW, srcH, tint) {
     if (isNaN(this.texW) || isNaN(this.texH)) {
-      const tex = SpriteBatch.textureCache.get(this.gl);
+      const obj = SpriteBatch.textureCache.get(this.gl);
+      const tex = obj && obj.texture;
       if (!tex) {
         throw new Error('SpriteBatch.createSprite: missing texture in cache');
       }
       this.texture = tex;
-      this.texW = tex.width;
-      this.texH = tex.height;
+      debugger;
+      this.texW = obj.width;
+      this.texH = obj.height;
+      console.log('Initialized texture with size', { width: obj.width, height: obj.height })
     }
     // console.log('SpriteBatch.createSprite: creating sprite', this.spriteCount);
     if (this.spriteCount >= this.maxSprites) {
@@ -279,8 +323,12 @@ export class SpriteBatch {
     const u1 = (spr.srcX + spr.srcW) / this.texW;
     const v0 = spr.srcY / this.texH;
     const v1 = (spr.srcY + spr.srcH) / this.texH;
-    const base = index * this._floatsPerPosSprite;
-    // Positions
+    const base = index * this._floatsPerPosSprite; // 6 verts * 2 components
+    if (this._floatsPerPosSprite != 12) {
+      throw new Error('SpriteBatch.updateSprite: unexpected floatsPerPosSprite value');
+    }
+
+    // Positions (6 vertices)
     this.positions.set([
       left, bottom,
       right, bottom,
@@ -289,6 +337,7 @@ export class SpriteBatch {
       right, top,
       left, top
     ], base);
+
     // Texcoords
     this.texcoords.set([
       u0, v1,
@@ -298,7 +347,8 @@ export class SpriteBatch {
       u1, v0,
       u0, v0
     ], base);
-    // Tints
+
+    // Tints: 6 verts * 4 components
     const tintBase = index * this._floatsPerTintSprite;
     const t = spr.tint;
     for (let v = 0; v < SpriteBatch.VERTS_PER_SPRITE; v++) {
@@ -321,10 +371,11 @@ export class SpriteBatch {
       'dstW:', spr.dstW, 'dstH:', spr.dstH, 'srcX:', spr.srcX, 'srcY:', spr.srcY, 'srcW:', spr.srcW, 'srcH:', spr.srcH, 'tint:', t);
   */  }
   uploadDirty() {
+    const gl = this.gl;
     if (this.dirty.size === 0) {
+      console.log('SpriteBatch.uploadDirty: no dirty sprites');
       return;
     }
-    const gl = this.gl;
     const indices = Array.from(this.dirty).sort((a, b) => a - b);
     let rangeStart = indices[0];
     let prev = rangeStart;
@@ -336,9 +387,10 @@ export class SpriteBatch {
         continue;
       }
       const count = (prev - rangeStart + 1);
-      const floatStart = rangeStart * this._floatsPerPosSprite;
-      const floatCount = count * this._floatsPerPosSprite;
+      const floatStart = rangeStart * 12;
+      const floatCount = count * 12;
       gl.bufferSubData(gl.ARRAY_BUFFER, floatStart * 4, this.positions.subarray(floatStart, floatStart + floatCount));
+      // console.log('SpriteBatch.uploadDirty: position range', 'startIdx:', rangeStart, 'endIdx:', prev, 'sprites:', count);
       rangeStart = curr;
       prev = curr;
     }
@@ -352,12 +404,14 @@ export class SpriteBatch {
         continue;
       }
       const count = (prev - rangeStart + 1);
-      const floatStart = rangeStart * this._floatsPerUvSprite;
-      const floatCount = count * this._floatsPerUvSprite;
+      const floatStart = rangeStart * 12;
+      const floatCount = count * 12;
       gl.bufferSubData(gl.ARRAY_BUFFER, floatStart * 4, this.texcoords.subarray(floatStart, floatStart + floatCount));
+      // console.log('SpriteBatch.uploadDirty: texcoord range', 'startIdx:', rangeStart, 'endIdx:', prev, 'sprites:', count);
       rangeStart = curr;
       prev = curr;
     }
+    // Upload tint ranges (6 verts * 4 floats per sprite)
     gl.bindBuffer(gl.ARRAY_BUFFER, this.tintBuffer);
     rangeStart = indices[0];
     prev = rangeStart;
@@ -368,9 +422,10 @@ export class SpriteBatch {
         continue;
       }
       const count = (prev - rangeStart + 1);
-      const floatStart = rangeStart * this._floatsPerTintSprite;
-      const floatCount = count * this._floatsPerTintSprite;
+      const floatStart = rangeStart * 24;
+      const floatCount = count * 24;
       gl.bufferSubData(gl.ARRAY_BUFFER, floatStart * 4, this.tints.subarray(floatStart, floatStart + floatCount));
+      // console.log('SpriteBatch.uploadDirty: tint range', 'startIdx:', rangeStart, 'endIdx:', prev, 'sprites:', count);
       rangeStart = curr;
       prev = curr;
     }
@@ -381,33 +436,51 @@ export class SpriteBatch {
   }
   render() {
     const gl = this.gl;
+    const program = this.program;
+    gl.useProgram(program);
+    if (!this.initRender) {
+      this.initRender = true;
+      const posLoc = gl.getAttribLocation(program, 'a_position');
+      const texLoc = gl.getAttribLocation(program, 'a_texcoord');
+      const tintLoc = gl.getAttribLocation(program, 'a_tint');
+      if (posLoc === -1 || texLoc === -1 || tintLoc === -1) {
+        console.error('init: attribute location failure', 'posLoc:', posLoc, 'texLoc:', texLoc, 'tintLoc:', tintLoc);
+        return;
+      }
+      if (posLoc === -1 || texLoc === -1 || tintLoc === -1) {
+        console.error('init: attribute location failure', 'posLoc:', posLoc, 'texLoc:', texLoc, 'tintLoc:', tintLoc);
+        return;
+      }
+      this.posLoc = posLoc;
+      this.texLoc = texLoc;
+      this.tintLoc = tintLoc;
+
+      const uTexLoc = gl.getUniformLocation(program, 'u_texture');
+      if (!uTexLoc) {
+        console.error('init: uniform u_texture missing');
+        throw new Error('Attribute location failure');
+      }
+      gl.uniform1i(uTexLoc, 0);
+    }
+    this.uploadDirty();
     if (this.spriteCount === 0) {
       console.log('SpriteBatch.render: no sprites');
       return;
     }
-    this.uploadDirty();
-
-    gl.useProgram(this.program);
-
     gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
-    const posLoc = gl.getAttribLocation(this.program, 'a_position');
-    gl.enableVertexAttribArray(posLoc);
-    gl.vertexAttribPointer(posLoc, 2, gl.FLOAT, false, 0, 0);
-
+    gl.enableVertexAttribArray(this.posLoc);
+    gl.vertexAttribPointer(this.posLoc, 2, gl.FLOAT, false, 0, 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.texcoordBuffer);
-    const texLoc = gl.getAttribLocation(this.program, 'a_texcoord');
-    gl.enableVertexAttribArray(texLoc);
-    gl.vertexAttribPointer(texLoc, 2, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(this.texLoc);
+    gl.vertexAttribPointer(this.texLoc, 2, gl.FLOAT, false, 0, 0);
 
-    gl.bindBuffer(gl.ARRAY_BUFFER, this.tintBuffer);
-    const tintLoc = gl.getAttribLocation(this.program, 'a_tint');
-    gl.enableVertexAttribArray(tintLoc);
-    gl.vertexAttribPointer(tintLoc, 4, gl.FLOAT, false, 0, 0);
-
-    gl.activeTexture(gl.TEXTURE0);
-    gl.bindTexture(gl.TEXTURE_2D, this.texture);
-    const uTexLoc = gl.getUniformLocation(this.program, 'u_texture');
-    gl.uniform1i(uTexLoc, 0);
+    if (typeof this.tintLoc === 'number' && this.tintLoc >= 0) {
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.tintBuffer);
+      gl.enableVertexAttribArray(this.tintLoc);
+      gl.vertexAttribPointer(this.tintLoc, 4, gl.FLOAT, false, 0, 0);
+    } else {
+      console.log('SpriteBatch.render: tintLoc invalid, skipping tint attribute bind', 'tintLoc:', this.tintLoc);
+    }
 
     gl.drawArrays(gl.TRIANGLES, 0, this.spriteCount * 6);
   }
@@ -432,13 +505,9 @@ function createBatch(gl, canvas, maxSprites = 128) {
   console.log('createBatch: batch ready', 'maxSprites:', maxSprites);
   return batch;
 }
-
-export let sampleBatches = [];
-export let sampleBatch = null; // first batch kept for backward compatibility
-
-function createSampleSprites(batch, lookup, atlasCanvas) {
-  if (!batch || !lookup || !atlasCanvas) {
-    console.error('createSampleSprites: missing params', 'batchOk:', !!batch, 'lookupKeys:', Object.keys(lookup).length, 'atlasCanvasOk:', !!atlasCanvas);
+function createSampleSprites(batch, lookup, displayCanvas) {
+  if (!batch || !lookup || !displayCanvas) {
+    console.error('createSampleSprites: missing params', 'batchOk:', !!batch, 'lookupKeys:', Object.keys(lookup).length, 'displayCanvasOk:', !!displayCanvas);
     return [];
   }
   const keys = Object.keys(lookup);
@@ -447,17 +516,17 @@ function createSampleSprites(batch, lookup, atlasCanvas) {
     return [];
   }
   const velocities = [];
-  const COUNT = Math.min(16, keys.length * 10);
-  // console.log('createSampleSprites: creating sprites', 'count:', COUNT, 'lookupKeys:', keys.length);
-  for (let i = 0; i < COUNT; i++) {
+  const count = Math.min(16, keys.length * 10);
+  // console.log('createSampleSprites: creating sprites', 'count:', count, 'lookupKeys:', keys.length);
+  for (let i = 0; i < count; i++) {
     const key = keys[i % keys.length];
     const info = lookup[key];
     if (!info) {
       console.error('createSampleSprites: info missing', 'key:', key);
       continue;
     }
-    const x = Math.floor(Math.random() * Math.max(0, atlasCanvas.width - info.w));
-    const y = Math.floor(Math.random() * Math.max(0, atlasCanvas.height - info.h));
+    const x = Math.floor(Math.random() * Math.max(0, displayCanvas.width - info.w));
+    const y = Math.floor(Math.random() * Math.max(0, displayCanvas.height - info.h));
     const spr = batch.createSprite(x, y, info.w, info.h, info.x, info.y, info.w, info.h, [1, 1, 1, 0]);
     if (!spr) {
       console.error('createSampleSprites: sprite create failed', 'i:', i);
@@ -468,67 +537,3 @@ function createSampleSprites(batch, lookup, atlasCanvas) {
   // console.log('createSampleSprites: done', 'created:', velocities.length);
   return velocities;
 }
-
-function updateSprites(batch, velocities, dt, canvas) {
-  if (!(batch && velocities && dt && canvas)) {
-    // console.log('updateSprites: missing args', 'batchOk:', !!batch, 'velOk:', !!velocities, 'dt:', dt, 'canvasOk:', !!canvas);
-    return;
-  }
-  const sprites = batch._sprites;
-  if (!sprites) {
-    // console.log('updateSprites: sprites missing');
-    return;
-  }
-  for (let i = 0; i < sprites.length; i++) {
-    const spr = sprites[i];
-    const vel = velocities[i];
-    if (!spr || !vel) {
-      // console.log('updateSprites: skip', 'i:', i, 'sprOk:', !!spr, 'velOk:', !!vel);
-      continue;
-    }
-    let nx = spr.dstX + vel.vx * dt;
-    let ny = spr.dstY + vel.vy * dt;
-    const worldX = nx + batch.offset.x + worldOffset.x;
-    const worldY = ny + batch.offset.y + worldOffset.y;
-    if (worldX < 0) {
-      nx = - (batch.offset.x + worldOffset.x);
-      vel.vx = Math.abs(vel.vx);
-      // console.log('updateSprites:bounceX:left', 'i:', i, 'nx:', nx.toFixed(2));
-    } else if (worldX + spr.dstW > canvas.width) {
-      nx = canvas.width - spr.dstW - (batch.offset.x + worldOffset.x);
-      vel.vx = -Math.abs(vel.vx);
-      // console.log('updateSprites:bounceX:right', 'i:', i, 'nx:', nx.toFixed(2));
-    }
-    if (worldY < 0) {
-      ny = - (batch.offset.y + worldOffset.y);
-      vel.vy = Math.abs(vel.vy);
-      // console.log('updateSprites:bounceY:top', 'i:', i, 'ny:', ny.toFixed(2));
-    } else if (worldY + spr.dstH > canvas.height) {
-      ny = canvas.height - spr.dstH - (batch.offset.y + worldOffset.y);
-      vel.vy = -Math.abs(vel.vy);
-      // console.log('updateSprites:bounceY:bottom', 'i:', i, 'ny:', ny.toFixed(2));
-    }
-    spr.dstX = Math.floor(nx * 2) / 2;
-    spr.dstY = Math.floor(ny * 2) / 2;
-    batch.updateSprite(i);
-  }
-}
-
-// function spriteLoop(time) {
-//   gl.clear(gl.COLOR_BUFFER_BIT);
-//   for (let b = 0; b < sampleBatches.length; b++) {
-//     const batch = sampleBatches[b];
-//     if (!batch) {
-//       console.error('renderLoop: missing batch', 'batchIndex:', b);
-//       continue;
-//     }
-//     const velocities = samplevelocities[b];
-//     if (!velocities) {
-//       console.error('renderLoop: missing velocities array', 'batchIndex:', b);
-//       continue;
-//     }
-//     updateSprites(batch, velocities, dt, canvas);
-//     batch.render();
-//     // console.log('renderLoop: batch rendered', 'batchIndex:', b, 'spriteCount:', batch.spriteCount);
-//   }
-// }

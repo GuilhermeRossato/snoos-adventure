@@ -1,13 +1,12 @@
 import { b, bc, ib, ibc } from "../utils/bezier.js";
 import { drawHTML5 } from "../utils/drawHTML5.js";
 import { expoEase } from "../utils/expoEase.js";
-import { initMaps } from "./modules/maps.js";
+import { initMaps, loadMaps } from "./modules/maps.js";
 import { startGameMenu } from "./menu.js";
 import { initKeys } from "./modules/keys.js";
-import { initGL } from "./modules/webgl.js";
-import { initTextures } from "./modules/textures.js";
-import { initSprites } from "./modules/sprites.js";
-import { executeConcurrently as executeConcurrently } from "../utils/executeConcurrently.js";
+import { initRendering, renderingState } from "./modules/rendering.js";
+import { initTextures, loadTextures } from "./modules/textures.js";
+import { executeConcurrently } from "../utils/executeConcurrently.js";
 import { sleep } from "../utils/sleep.js";
 
 const width = 480;
@@ -19,15 +18,21 @@ let canvas;
 /** @type {CanvasRenderingContext2D} */
 let ctx;
 
-/** @type {WebGL2RenderingContext} */
-let gl;
-
 export const initState = {
-  gl,
+  done: false,
   active: false,
   start: 0,
   time: 0,
   last: 0,
+  gl: null,
+}
+
+function setStatusText(text) {
+  const statusEl = document.querySelector('#status_text');
+  if (statusEl) {
+    statusEl.textContent = text;
+  }
+  console.log('%c\nStatus:', 'color: yellow; font-weight: bold;', text);
 }
 
 async function init() {
@@ -41,44 +46,47 @@ async function init() {
       ctx.fillStyle = 'rgb(106, 166, 110)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       initState.active = true;
+      initState.done = false;
       requestAnimationFrame(showHtml5Logo);
     }
   }
+  setStatusText('Initializing webgl / hooks...');
   const initialRecord = {
     keys: initKeys,
     maps: initMaps,
     textures: initTextures,
-    gl: initGL
+    rendering: initRendering
   };
   const loadedInitialEntries = await executeConcurrently(Object.entries(initialRecord).map(([key, func]) => async () => [key, await func()]));
   const initialRecordLoaded = Object.fromEntries(loadedInitialEntries);
-for (const key in initialRecordLoaded) {
-  if (!initialRecordLoaded[key] && initialRecordLoaded[key] !== false) {
-    console.error(`init: module initialization failed`, 'module:', key);
-    throw new Error(`Module initialization failed: ${key}`);
+  for (const key in initialRecordLoaded) {
+    if (initialRecordLoaded[key] === null) {
+      console.error(`init: module initialization failed`, 'module:', key);
+      throw new Error(`Module initialization failed: ${key}`);
+    }
   }
-}
-  gl = initialRecordLoaded.gl;
-  if (!gl) {
-    console.error('init: gl initialization failed');
-    return;
-  }
-  initState.gl = gl;
-  const {
-    atlasCanvas,
-    textureLookup,
-  } = await initTextures(gl);
+  ctx = initialRecordLoaded.rendering.menuCtx;
+  canvas = ctx.canvas;
+
+  setStatusText('Loading textures...');
+  
+  await loadTextures();
+  
+  setStatusText('Loading maps...');
+  const maps = await loadMaps();
+
+  console.log('init: maps loaded', 'count:', maps ? Object.keys(maps).length : 0);
   await sleep(100);
-  await maps.loadAllMaps();
-  const render = await initSprites(gl, atlasCanvas, textureLookup);
-  console.log('init: All modules initialized');
+
+  setStatusText('Loading menu...');
   initState.active = false;
   let t = setInterval(() => {
     if (!initState.done) {
       return;
     }
+    console.log('init: Logo finished...');
     clearInterval(t);
-    requestAnimationFrame(render);
+    t = null;
   }, 100);
 }
 
@@ -102,7 +110,9 @@ function showHtml5Logo(time) {
     initState.time = 3600;
     initState.done = true;
     try {
-      startGameMenu(time, initState.gl);
+      startGameMenu(time, renderingState.displayGL).catch(err => {
+        console.error('showHtml5Logo: startGameMenu failed', 'errMsg:', err && err.message);
+      });
     } catch (err) {
       console.error('showHtml5Logo: startGameMenu failed', 'errMsg:', err && err.message);
     }

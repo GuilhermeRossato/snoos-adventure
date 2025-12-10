@@ -60,28 +60,28 @@
             } else if (e.getAttribute('data-loaded') || e.naturalWidth || e.naturalHeight) {
               console.log("Header pop-up image already loaded, skipping animation");
               e.style.transition = "none";
-              e.style.transform = `translateY(0%)`;
+              e.style.transform = `translateY(-5%)`;
             } else {
               console.log("Image not loaded yet and no recent pop-up, starting animation on load");
               e.style.transition = "none";
-              e.style.transform = `translateY(-100%)`;
+              e.style.transform = `translateY(-5%)`;
               let htmr = setTimeout(() => {
                 htmr = null;
                 console.log("Header image not loaded after 1s, starting animation anyway");
-                e.style.transform = `translateY(0%)`;
+                e.style.transform = `translateY(-5%)`;
               }, 1000);
               setTimeout(() => {
                 if (window.scrollY > 0) {
                   sessionStorage.setItem('last-header-pop-up', Date.now() + '-' + Math.floor(performance.now()));
                   console.log("User has scrolled down, cancelling header animation");
                   e.style.transition = "none";
-                  e.style.transform = `translateY(0%)`;
+                  e.style.transform = `translateY(-5%)`;
                   if (htmr) {
                     clearTimeout(htmr);
                     htmr = null;
                   }
                 } else {
-                  e.style.transition = "transform 3s ease-out";
+                  e.style.transition = "transform 2s ease-in-out";
                 }
               }, 10);
               e.addEventListener('load', () => {
@@ -90,7 +90,7 @@
                 }
                 console.log("Header image loaded, starting animation");
                 clearTimeout(htmr);
-                e.style.transform = `translateY(0%)`;
+                e.style.transform = `translateY(-5%)`;
                 sessionStorage.setItem('last-header-pop-up', Date.now() + '-' + Math.floor(performance.now()));
               });
             }
@@ -110,7 +110,7 @@
               supported in your browser. I recommend using the latest version of Google Chrome to play this
               game.</canvas>
           </div>
-          <div class="canvas-spacer" style="height: calc(70vw + 16px); max-height: min(min(70vw, 70vh), 960px);"></div>
+          <div class="canvas-spacer"></div>
           <div class="middle-wrapper disabled">
             <div class="middle-content">
             </div>
@@ -141,7 +141,6 @@
               <p>The game was written in HTML5
                 with JavaScript (ES2023) and
                 WebGL (no framework).</p>
-
             </div>
           </div>
         </div>
