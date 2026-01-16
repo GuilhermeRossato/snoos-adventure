@@ -5,6 +5,16 @@ using System.IO;
 using System.Net;
 using System.Text;
 
+/// <summary>
+/// The GameServer handles HTTP requests by serving static files, redirecting requests, 
+/// and responding with appropriate error messages when necessary. It initializes the 
+/// working directory to ensure the "assets" folder is accessible, starts an HTTP server 
+/// on a specified or default port, and listens for incoming requests. Depending on the 
+/// request URL, it serves files such as HTML, images, or icons, redirects to specific 
+/// locations, or returns error responses for invalid or missing resources. The server 
+/// also sets appropriate HTTP headers for caching, content type, and redirection, ensuring 
+/// proper handling of client requests.
+/// </summary>
 class Program
 {
   static void initCwd() {
