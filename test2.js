@@ -165,18 +165,18 @@ async function loadTextures() {
       console.error('loadTextures: document.body missing; cannot append canvas');
     }
   }
-  const ctx = atlasCanvas.getContext('2d');
-  if (!ctx) {
+  const atlasCtx = atlasCanvas.getContext('2d');
+  if (!atlasCtx) {
     console.error('loadTextures: 2d context creation failed');
     return { canvas: atlasCanvas, lookup: textureLookup };
   }
-  ctx.clearRect(0, 0, atlasCanvas.width, atlasCanvas.height);
+  atlasCtx.clearRect(0, 0, atlasCanvas.width, atlasCanvas.height);
   console.log('loadTextures: canvas cleared', 'w:', atlasCanvas.width, 'h:', atlasCanvas.height);
 
   for (let i = 0; i < placements.length; i++) {
     const p = placements[i];
     try {
-      ctx.drawImage(p.img, p.xPx, p.yPx);
+      atlasCtx.drawImage(p.img, p.xPx, p.yPx);
       console.log('loadTextures: image drawn', 'i:', i, 'key:', p.key, 'x:', p.xPx, 'y:', p.yPx, 'w:', p.w, 'h:', p.h);
     } catch (err) {
       console.error('loadTextures: drawImage failed', 'i:', i, 'key:', p.key, 'x:', p.xPx, 'y:', p.yPx, 'errMsg:', err && err.message);
@@ -337,7 +337,7 @@ class SpriteBatch {
     }
     const index = this.spriteCount++;
     // tint: optional array [r,g,b,weight] default -> no tint (white,0)
-    const t = Array.isArray(tint) && tint.length >= 4 ? tint.slice(0,4) : [1.0, 1.0, 1.0, 0.0];
+    const t = Array.isArray(tint) && tint.length >= 4 ? tint.slice(0, 4) : [1.0, 1.0, 1.0, 0.0];
     const sprite = { index, dstX, dstY, dstW, dstH, srcX, srcY, srcW, srcH, tint: t };
     this._sprites.push(sprite);
     this.updateSprite(index);
@@ -415,14 +415,14 @@ class SpriteBatch {
 
     this.dirty.add(index);
     this._dirtyFlags[index] = 1;
-    console.log('SpriteBatch.updateSprite: updated sprite', 'index:', index,
+    /* console.log('SpriteBatch.updateSprite: updated sprite', 'index:', index,
       'localPosX:', spr.dstX.toFixed(2), 'localPosY:', spr.dstY.toFixed(2),
       'worldX:', worldX.toFixed(2), 'worldY:', worldY.toFixed(2),
       'batchOffsetX:', this.offset.x.toFixed(2), 'batchOffsetY:', this.offset.y.toFixed(2),
       'worldOffsetX:', (worldOffset && worldOffset.x) ? worldOffset.x.toFixed(2) : '0.00',
       'worldOffsetY:', (worldOffset && worldOffset.y) ? worldOffset.y.toFixed(2) : '0.00',
       'posBaseFloats:', base, 'dirtyCountSet:', this.dirty.size,
-      'dstW:', spr.dstW, 'dstH:', spr.dstH, 'srcX:', spr.srcX, 'srcY:', spr.srcY, 'srcW:', spr.srcW, 'srcH:', spr.srcH, 'tint:', t);
+      'dstW:', spr.dstW, 'dstH:', spr.dstH, 'srcX:', spr.srcX, 'srcY:', spr.srcY, 'srcW:', spr.srcW, 'srcH:', spr.srcH, 'tint:', t); */
   }
   uploadDirty() {
     const gl = this.gl;
@@ -513,7 +513,7 @@ class SpriteBatch {
     }
 
     gl.drawArrays(gl.TRIANGLES, 0, this.spriteCount * 6);
-    console.log('SpriteBatch.render: drawArrays issued', 'spriteCount:', this.spriteCount, 'verts:', this.spriteCount * 6);
+    // console.log('SpriteBatch.render: drawArrays issued', 'spriteCount:', this.spriteCount, 'verts:', this.spriteCount * 6);
   }
 }
 
@@ -530,6 +530,8 @@ async function init() {
     console.error('init: WebGL not supported');
     return;
   }
+  const gl = gl2;
+  /*
 const gl = new Proxy(gl2, {
   get(target, prop, receiver) {
     const list = (window['_order'] = (window['_order'] || []));
@@ -557,6 +559,7 @@ const gl = new Proxy(gl2, {
     return value;
   }
 });
+*/
   console.log('init: obtained WebGL context');
 
   const dpr = window.devicePixelRatio || 1;
@@ -638,24 +641,24 @@ const gl = new Proxy(gl2, {
   gl.useProgram(program);
 
   const posLoc = gl.getAttribLocation(program, 'a_position');
-  const texLocAttr = gl.getAttribLocation(program, 'a_texcoord');
+  const texLoc = gl.getAttribLocation(program, 'a_texcoord');
   const tintLoc = gl.getAttribLocation(program, 'a_tint');
-  if (posLoc === -1 || texLocAttr === -1 || tintLoc === -1) {
-    console.error('init: attribute location failure', 'posLoc:', posLoc, 'texLocAttr:', texLocAttr, 'tintLoc:', tintLoc);
+  if (posLoc === -1 || texLoc === -1 || tintLoc === -1) {
+    console.error('init: attribute location failure', 'posLoc:', posLoc, 'texLoc:', texLoc, 'tintLoc:', tintLoc);
     return;
   }
-  console.log('init: attribute locations ok', 'posLoc:', posLoc, 'texLocAttr:', texLocAttr, 'tintLoc:', tintLoc);
+  console.log('init: attribute locations ok', 'posLoc:', posLoc, 'texLoc:', texLoc, 'tintLoc:', tintLoc);
 
   const uTexLoc = gl.getUniformLocation(program, 'u_texture');
   if (!uTexLoc) {
     console.error('init: uniform u_texture missing');
-    return;
+    throw new Error('Attribute location failure');
   }
   gl.uniform1i(uTexLoc, 0);
   console.log('init: uniform u_texture set', 'value:', 0);
 
   // Create multiple batches
-  const BATCH_COUNT = 16;
+  const BATCH_COUNT = 2;
   const BATCH_SIZE = 64;
   const batches = [];
   const batchVelocities = []; // per-batch velocity arrays
@@ -698,7 +701,7 @@ const gl = new Proxy(gl2, {
     console.log('init: buffers allocated for batch', 'batch:', b, 'posBytes:', posBytes, 'texBytes:', texBytes, 'tintBytes:', tintBytes);
 
     const batch = new SpriteBatch(gl, canvas.width, canvas.height, texW, texH,
-      BATCH_SIZE, positionBuffer, texcoordBuffer, tintBuffer, posLoc, texLocAttr, tintLoc);
+      BATCH_SIZE, positionBuffer, texcoordBuffer, tintBuffer, posLoc, texLoc, tintLoc);
     if (!batch) {
       console.error('init: SpriteBatch construction failed', 'batch:', b);
       return;
@@ -806,7 +809,7 @@ const gl = new Proxy(gl2, {
               'newLocalX:', newLocalX.toFixed(2), 'worldNewX:', (worldNewX + spr.dstW).toFixed(2),
               'vx:', vel.vx.toFixed(2), 'maxLocalX:', maxLocalX.toFixed(2), 'batchOffX:', batchOffX.toFixed(2), 'globalOffX:', globalOffX.toFixed(2));
           } else {
-            console.log('frame:noBounceX', 'batchIdx:', b, 'spriteIdx:', i, 'newLocalX:', newLocalX.toFixed(2), 'worldNewX:', worldNewX.toFixed(2));
+            // /// console.log('frame:noBounceX', 'batchIdx:', b, 'spriteIdx:', i, 'newLocalX:', newLocalX.toFixed(2), 'worldNewX:', worldNewX.toFixed(2));
           }
 
           // Bounce Y
@@ -823,7 +826,7 @@ const gl = new Proxy(gl2, {
               'newLocalY:', newLocalY.toFixed(2), 'worldNewY:', (worldNewY + spr.dstH).toFixed(2),
               'vy:', vel.vy.toFixed(2), 'maxLocalY:', maxLocalY.toFixed(2), 'batchOffY:', batchOffY.toFixed(2), 'globalOffY:', globalOffY.toFixed(2));
           } else {
-            console.log('frame:noBounceY', 'batchIdx:', b, 'spriteIdx:', i, 'newLocalY:', newLocalY.toFixed(2), 'worldNewY:', worldNewY.toFixed(2));
+            // console.log('frame:noBounceY', 'batchIdx:', b, 'spriteIdx:', i, 'newLocalY:', newLocalY.toFixed(2), 'worldNewY:', worldNewY.toFixed(2));
           }
 
           // Commit once and mark dirty (local positions)
@@ -831,13 +834,11 @@ const gl = new Proxy(gl2, {
           spr.dstY = newLocalY;
           batch.updateSprite(i);
 
-          console.log('frame:update', 'batchIdx:', b, 'spriteIdx:', i, 'localX:', spr.dstX.toFixed(2), 'localY:', spr.dstY.toFixed(2),
-            'worldX:', (spr.dstX + batchOffX + globalOffX).toFixed(2), 'worldY:', (spr.dstY + batchOffY + globalOffY).toFixed(2),
-            'vx:', vel.vx.toFixed(2), 'vy:', vel.vy.toFixed(2));
+
         }
         batch.render();
         console.log('frame: rendered', 'batchIdx:', b, 'verts:', batch.spriteCount * 6, 'batchOffsetX:', batch.offset.x.toFixed(2), 'batchOffsetY:', batch.offset.y.toFixed(2));
-        
+
         if (Math.random() < 0.5) {
           batch.offset.y += 10 * Math.random();
         }

@@ -71,7 +71,6 @@ export async function createCanvasTexture(canvas, gl) {
   try {
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
-    console.log('texImage2D success', 'w:', canvas.width, 'h:', canvas.height);
   } catch (err) {
     console.error('texImage2D failed', 'errMsg:', err && err.message);
     return null;

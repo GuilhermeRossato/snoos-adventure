@@ -73,7 +73,7 @@ async function startProcessingInterpolation() {
     });
   }
   finder(r.btnStyles).forEach(btn => {
-    btn.textContent = `Styles (${Object.keys(entries).length}/${window['interpolation-maps'].reduce((acc, map) => acc + map.size, 0)})`;
+    btn.textContent = `Styles ({Object.keys(entries).length}/${window['interpolation-maps'].reduce((acc, map) => acc + map.size, 0)})`;
   });
   if (Object.keys(entries).length === 0) {
     return;
@@ -133,7 +133,7 @@ const handleClick = (e) => {
         const elements = Array.from(document.elementsFromPoint(x, y)).filter(el => el !== document.documentElement && !(el instanceof Text) && typeof el.computedStyleMap === 'function');
         btn.textContent = `Hovering ${elements.length} elements at ${x},${y}...`;
       } else {
-        btn.textContent = `Elements (${window['interpolation-elements'].length} at ${window['interpolation-elements-click'] ? `${window['interpolation-elements-click'].x},${window['interpolation-elements-click'].y}` : 'N/A'})`;
+        btn.textContent = `Elements ({window['interpolation-elements'].length} at ${window['interpolation-elements-click'] ? `${window['interpolation-elements-click'].x},${window['interpolation-elements-click'].y}` : 'N/A'})`;
       }
       return;
     }
@@ -149,7 +149,7 @@ const handleClick = (e) => {
       const newMaps = deltaStyleMaps(window['interpolation-maps'], createStyleMaps(window['interpolation-elements']));
       const previousCount = window['interpolation-maps'].reduce((acc, map) => acc + (map.size > 0 ? 1 : 0), 0);
       const changedCount = newMaps.reduce((acc, map) => acc + (map.size > 0 ? 1 : 0), 0);
-      btn.textContent = `Styles (${changedCount}/${previousCount})`;
+      btn.textContent = `Styles ({changedCount}/${previousCount})`;
       handleClick(newMaps);
       return;
     }
@@ -158,7 +158,7 @@ const handleClick = (e) => {
       if (isNaN(Number(width))) {
         width = window.innerWidth;
       }
-      btn.textContent = `Start width (${width})`;
+      btn.textContent = `Start width ({width})`;
       return;
     }
     if (is(e, r.btnEndWidth)) {
@@ -166,7 +166,7 @@ const handleClick = (e) => {
       if (isNaN(Number(width))) {
         width = window.innerWidth;
       }
-      btn.textContent = `End width (${width})`;
+      btn.textContent = `End width ({width})`;
       return;
     }
     throw new Error('Unreachable code reached in handleClick');
@@ -620,7 +620,7 @@ function applyChangesToContent(element, list) {
         };
         return (mult > 0) ? "calc(" + vw + " " + px + ")" : "calc(" + px + " " + vw + ")"
       }
-      const exp = getChangeExpression(el, prop, change)||`b(${String(change.prevComp).replace('px', '')}, ${String(change.nextComp).replace('px', '')}, ib(${window['interpolation-width'][0]}, ${window['interpolation-width'][1]}))`;
+      const exp = getChangeExpression(el, prop, change)||`b({String(change.prevComp).replace('px', '')}, ${String(change.nextComp).replace('px', '')}, ib({window['interpolation-width'][0]}, ${window['interpolation-width'][1]}))`;
 
       el.textContent = exp;
     }

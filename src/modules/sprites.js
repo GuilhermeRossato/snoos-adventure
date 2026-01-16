@@ -1,16 +1,142 @@
+import { g } from "../../utils/g.js";
+import { keys } from "./keys.js";
 import { loadMaps } from "./maps.js";
+import { renderingState } from "./rendering.js";
 import { createCanvasTexture, textureLookup } from "./textures.js";
-import { tileTextures } from "./tiles.js";
 
 export const worldOffset = { x: 0, y: 0 };
+
+let multi = null;
+
+g('multi', multi);
+
+export function addBatch(batch, velocities) {
+  if (!multi) {
+    multi = { batches: [], velocities: [] };
+  }
+  multi.batches.push(batch);
+  multi.velocities.push(velocities || []);
+}
+
+const spriteHover = {
+  target: null,
+  active: null,
+  batch: null,
+}
+
+export function initSpriteMouseHover() {
+  keys.onKeyDown("F3", ()=>{
+    keys.ignoreMouseEvent = !keys.ignoreMouseEvent;
+    console.log('Mouse hover toggle, ignoreMouseEvent:', keys.ignoreMouseEvent);
+  })
+  keys.onMouseMove(function (evt) {
+    if (evt.x < 0 || evt.y < 0 || evt.x > 1 || evt.y > 1) {
+      if (spriteHover.target !== null) {
+        console.log('sprite hover cleared from out of bounds', spriteHover.target);
+        spriteHover.target = null;
+        spriteHover.batch = null;
+      }
+      return;
+    }
+    for (let b = multi.batches.length - 1; b >= 0; b--) {
+      const batch = multi.batches[b];
+      if (!batch) {
+        continue;
+      }
+      const sprites = batch._sprites;
+      if (!sprites) {
+        continue;
+      }
+      const displayCanvas = renderingState.displayGL.canvas;
+      const canvasX = evt.x * displayCanvas.width;
+      const canvasY = evt.y * displayCanvas.height;
+      for (let i = 0; i < sprites.length; i++) {
+        const spr = sprites[i];
+        if (canvasX >= spr.dstX && canvasX <= spr.dstX + spr.dstW &&
+          canvasY >= spr.dstY && canvasY <= spr.dstY + spr.dstH) {
+          if (spriteHover.target !== spr) {
+            console.log('sprite hover enter', spr);
+            spriteHover.target = spr;
+            spriteHover.batch = batch;
+          }
+          return;
+        }
+      }
+    }
+    if (spriteHover.target !== null) {
+      console.log('sprite hover cleared', spriteHover.target);
+      spriteHover.target = null;
+      spriteHover.batch = null;
+    }
+  });
+}
+
+function setStatusSpriteInfo(x, y, meta) {
+document.querySelector('#status_text').textContent = x !== undefined && y !== undefined ? `Sprite ({x}, ${y})\n${meta ? JSON.stringify(meta) : ''}` : '';
+}
+
+export function render() {
+  const displayGL = renderingState.displayGL;
+  const displayCanvas = renderingState.displayGL.canvas;
+  try {
+    displayGL.clear(displayGL.COLOR_BUFFER_BIT);
+    if (spriteHover.target !== spriteHover.active) {
+      spriteHover.active = spriteHover.target;
+      if (spriteHover.batch?.map) {
+        const metadata = spriteHover.batch.map.spriteMetadata.get(spriteHover.target.dstX / 16, spriteHover.target.dstY / 16);
+        console.log('sprite hover changed, map:', metadata);
+        setStatusSpriteInfo(spriteHover.target.dstX / 16, spriteHover.target.dstY / 16, metadata);
+      } else {
+        setStatusSpriteInfo(undefined, undefined, undefined);
+      }
+    }
+    for (let b = 0; b < multi.batches.length; b++) {
+      const batch = multi.batches[b];
+      if (!batch) {
+        console.error('renderLoop: missing batch', 'batchIndex:', b);
+        continue;
+      }
+      const velocities = multi.velocities[b];
+      if (!velocities) {
+        continue;
+      }
+      const sprites = batch._sprites;
+      if (!batch || !velocities || !sprites) {
+        console.log('frame: missing batch/velocities/sprites', 'batchIdx:', b,
+          'batch:', !!batch, 'velocities:', !!velocities, 'sprites:', !!sprites);
+        continue;
+      }
+      for (let i = 0; i < sprites.length; i++) {
+        if (velocities && velocities[i]) {
+          const spr = sprites[i];
+          spr.dstX += (velocities[i].vx * (1 / 60));
+          spr.dstY += (velocities[i].vy * (1 / 60));
+          if (spr.dstX < 0 || spr.dstX + spr.dstW > displayCanvas.width) {
+            velocities[i].vx = -velocities[i].vx;
+            spr.dstX = Math.max(0, Math.min(spr.dstX, displayCanvas.width - spr.dstW));
+          }
+          if (spr.dstY < 0 || spr.dstY + spr.dstH > displayCanvas.height) {
+            velocities[i].vy = -velocities[i].vy;
+            spr.dstY = Math.max(0, Math.min(spr.dstY, displayCanvas.height - spr.dstH));
+          }
+        }
+        batch.updateSprite(i);
+      }
+      batch.render();
+    }
+    requestAnimationFrame(render);
+  } catch (error) {
+    console.error('renderLoop: error during render', 'message:', error && error.message);
+  }
+
+}
 
 /**
  * 
  * @param {typeof import('./../init.js').initState} initState 
- * @param {typeof import('./rendering.js').renderingState} renderingState 
  * @returns 
  */
-export async function initSprites(initState, renderingState) {
+export async function initSprites(initState) {
   const displayGL = renderingState.displayGL;
   const displayCanvas = renderingState.displayGL.canvas;
   const atlasCanvas = renderingState.atlasCtx.canvas;
@@ -25,49 +151,23 @@ export async function initSprites(initState, renderingState) {
   });
   const maps = await loadMaps();
   initState.maps = maps;
-  const multi = createMultipleBatches(displayGL, textureLookup, atlasCanvas);
+
+  multi = createMultipleBatches(displayGL, maps["map-01"]);
+
+  g('batches', multi.batches);
+  g('velocities', multi.velocities);
+
   // Expose created batches for external creation of sprites (e.g., maps)
   multi.batches = multi && Array.isArray(multi.batches) ? multi.batches : [];
   const sampleBatch = multi.batches.length > 0 ? multi.batches[0] : null;
   console.log('initSprites: sample batches exposed', 'batches:', multi.batches.length, 'hasSampleBatch:', !!sampleBatch);
-
-  return function render() {
-    try {
-      displayGL.clear(displayGL.COLOR_BUFFER_BIT);
-      for (let b = 0; b < multi.batches.length; b++) {
-        const batch = multi.batches[b];
-        if (!batch) {
-          console.error('renderLoop: missing batch', 'batchIndex:', b);
-          continue;
-        }
-        const velocities = multi.velocities[b];
-        if (!velocities) {
-          console.error('renderLoop: missing velocities array', 'batchIndex:', b);
-          continue;
-        }
-        const sprites = batch._sprites;
-        if (!batch || !velocities || !sprites) {
-          console.log('frame: missing batch/velocities/sprites', 'batchIdx:', b,
-            'batch:', !!batch, 'velocities:', !!velocities, 'sprites:', !!sprites);
-          continue;
-        }
-        for (let i = 0; i < sprites.length; i++) {
-          batch.updateSprite(i);
-        }
-        batch.render();
-      }
-      requestAnimationFrame(render);
-    } catch (error) {
-      console.error('renderLoop: error during render', 'message:', error && error.message);
-    }
-  };
 }
 
-function createMultipleBatches(gl, lookup, atlasCanvas) {
+function createMultipleBatches(gl, mapData) {
   const displayCanvas = gl.canvas;
 
-  if (!gl || !displayCanvas || !lookup) {
-    console.error('createMultipleBatches: missing params', 'glOk:', !!gl, 'displayCanvasOk:', !!displayCanvas, 'lookupKeys:', Object.keys(lookup).length);
+  if (!gl || !displayCanvas || !textureLookup) {
+    console.error('createMultipleBatches: missing params', 'glOk:', !!gl, 'displayCanvasOk:', !!displayCanvas, 'lookupKeys:', Object.keys(textureLookup).length);
     throw new Error('Invalid params');
   }
 
@@ -83,14 +183,14 @@ function createMultipleBatches(gl, lookup, atlasCanvas) {
 
   const batches = [];
   const velocities = [];
-  const batchCount = 1;
+  const batchCount = 3;
   for (let i = 0; i < batchCount; i++) {
-    const batch = createBatch(gl, displayCanvas);
+    const batch = createBatch(gl, displayCanvas, i === 0 ? 1024 : 1024 * 4);
     if (!batch) {
       console.error('createMultipleBatches: batch create failed', 'i:', i);
       continue;
     }
-    const vel = createSampleSprites(batch, lookup, displayCanvas);
+    const vel = createSampleSprites(batch, displayCanvas, mapData ? mapData.spriteChunks : null);
     if (!vel || !vel.length) {
       console.error('createMultipleBatches: sample sprites create failed', 'i:', i);
       continue;
@@ -118,8 +218,9 @@ export class SpriteBatch {
   static TINT_COMPONENTS = 4;
 
   constructor(gl, canvasW, canvasH, maxSprites) {
-    console.log('SpriteBatch: constructing', maxSprites);
-
+    if (!gl) {
+      throw new Error('SpriteBatch: missing WebGL context');
+    }
     this.gl = gl;
     this.canvasW = canvasW;
     this.canvasH = canvasH;
@@ -505,34 +606,51 @@ function createBatch(gl, canvas, maxSprites = 128) {
   console.log('createBatch: batch ready', 'maxSprites:', maxSprites);
   return batch;
 }
-function createSampleSprites(batch, lookup, displayCanvas) {
-  if (!batch || !lookup || !displayCanvas) {
-    console.error('createSampleSprites: missing params', 'batchOk:', !!batch, 'lookupKeys:', Object.keys(lookup).length, 'displayCanvasOk:', !!displayCanvas);
+
+const logRec = {};
+
+function createSampleSprites(batch, displayCanvas, spriteChunks) {
+  if (!batch || !textureLookup || !displayCanvas) {
+    console.error('createSampleSprites: missing params', 'batchOk:', !!batch, 'lookupKeys:', Object.keys(textureLookup).length, 'displayCanvasOk:', !!displayCanvas);
     return [];
   }
-  const keys = Object.keys(lookup);
+  const keys = Object.keys(textureLookup);
   if (keys.length === 0) {
     console.error('createSampleSprites: empty lookup');
     return [];
   }
   const velocities = [];
-  const count = Math.min(16, keys.length * 10);
+  const count = spriteChunks && Array.isArray(spriteChunks) && spriteChunks.length > 0 ? spriteChunks.length : 128;
   // console.log('createSampleSprites: creating sprites', 'count:', count, 'lookupKeys:', keys.length);
   for (let i = 0; i < count; i++) {
-    const key = keys[i % keys.length];
-    const info = lookup[key];
+    const key = spriteChunks && spriteChunks[i] ? spriteChunks[i].tile : keys[i % keys.length];
+    const info = textureLookup[key];
     if (!info) {
-      console.error('createSampleSprites: info missing', 'key:', key);
+      if (!logRec[key]) {
+        logRec[key] = 1;
+        console.error('createSampleSprites: missing texture info', 'key:', key);
+      }
       continue;
     }
-    const x = Math.floor(Math.random() * Math.max(0, displayCanvas.width - info.w));
-    const y = Math.floor(Math.random() * Math.max(0, displayCanvas.height - info.h));
-    const spr = batch.createSprite(x, y, info.w, info.h, info.x, info.y, info.w, info.h, [1, 1, 1, 0]);
-    if (!spr) {
-      console.error('createSampleSprites: sprite create failed', 'i:', i);
-      continue;
+    if (spriteChunks && spriteChunks[i]) {
+      const x = spriteChunks[i].x * 16;
+      const y = spriteChunks[i].y * 16;
+      const spr = batch.createSprite(x, y, info.w, info.h, info.x, info.y, info.w, info.h, [1, 1, 1, 0.5]);
+      if (!spr) {
+        console.error('createSampleSprites: sprite create failed', 'i:', i, 'key:', key);
+        continue;
+      }
+      velocities.push({ vx: (Math.random() * 120 - 60), vy: (Math.random() * 120 - 60) });
+    } else {
+      const x = Math.floor(Math.random() * Math.max(0, displayCanvas.width - info.w));
+      const y = Math.floor(Math.random() * Math.max(0, displayCanvas.height - info.h));
+      const spr = batch.createSprite(x, y, info.w, info.h, info.x, info.y, info.w, info.h, [1, 1, 1, 0.5]);
+      if (!spr) {
+        console.error('createSampleSprites: sprite create failed', 'i:', i);
+        continue;
+      }
+      velocities.push({ vx: (Math.random() * 120 - 60), vy: (Math.random() * 120 - 60) });
     }
-    velocities.push({ vx: (Math.random() * 120 - 60), vy: (Math.random() * 120 - 60) });
   }
   // console.log('createSampleSprites: done', 'created:', velocities.length);
   return velocities;

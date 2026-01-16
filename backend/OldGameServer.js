@@ -1,10 +1,10 @@
 import fs from "node:fs";
 import path from "node:path";
 import http from "node:http";
-import { execSafe } from "./utils/execSafe.js";
-import getMimeLookupRecord from "./utils/getMimeLookupRecord.js";
+import { execSafe } from "../utils/execSafe.js";
+import getMimeLookupRecord from "../utils/getMimeLookupRecord.js";
 
-const host = '192.168.15.25';
+const host = '0.0.0.0';
 const port = 9000;
 
 const mimeLookup = getMimeLookupRecord();
@@ -25,11 +25,12 @@ const faviconTime = fs.statSync("./favicons/favicon.ico").mtime.toUTCString();
 const server = http.createServer((req, res) => {
   const { remoteAddress, remotePort } = req.socket;
 
-  if (req.url === "/" || req.url === "/index.html") {
+  if (req.url === "/" || req.url === "/index.html" || req.url === "/redirect.html" || req.url.startsWith('/index')) {
     return execSafe(
       () => {
-        const data = fs.readFileSync("./index.html");
-        const stat = fs.statSync("./index.html");
+        try {
+        const data = fs.readFileSync("./redirect.html");
+        const stat = fs.statSync("./redirect.html");
         res.writeHead(200, {
           "Content-Type": "text/html; charset=UTF-8",
           "Content-Length": data.byteLength,
@@ -40,6 +41,12 @@ const server = http.createServer((req, res) => {
           'Expires': new Date(Date.now() + 1000).toUTCString()
         });
         res.end(data);
+        
+        } catch (e) {
+          console.error("Error reading redirect.html:", e.message);
+          res.writeHead(500, { "Content-Type": "text/plain" });
+          res.end("Internal Server Error");
+        }
       },
     );
   }

@@ -91,6 +91,7 @@ export async function generateTileTextureCanvas(validImages, totalCells, CELL, t
 
   function ensureRows(r) {
     while (rows < r) {
+      console.log('adding row', 'rowsNow:', rows);
       occupancy.push(new Array(atlasCellsW).fill(false));
       rows++;
       debug && console.log('row added', 'rowsNow:', rows);
@@ -196,7 +197,7 @@ export async function generateTileTextureCanvas(validImages, totalCells, CELL, t
       'u0:', textureLookup[p.key].u0.toFixed(4), 'v0:', textureLookup[p.key].v0.toFixed(4),
       'u1:', textureLookup[p.key].u1.toFixed(4), 'v1:', textureLookup[p.key].v1.toFixed(4));
   }
-  await sleep(100);
+  await sleep(10);
   debug && console.log('complete', 'drawnCount:', placements.length, 'lookupKeys:', Object.keys(textureLookup).length);
   return { atlasCanvas, textureLookup };
 }

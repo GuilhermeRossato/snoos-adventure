@@ -1,4 +1,7 @@
 import { camelCaseToSlug } from "../camelCaseToSlug.js";
+import { renderingState } from "./rendering.js";
+
+
 
 const debug = true;
 
@@ -29,6 +32,7 @@ const keyLookup = {
 }
 
 export const keys = {
+  ignoreMouseEvent: false,
   states: {
     "up": false,
     "down": false,
@@ -260,7 +264,7 @@ export const keys = {
       y = x.clientY;
       x = x.clientX;
       if (!this.canvas) {
-        this.canvas = document.querySelector('canvas');
+        this.canvas = renderingState.displayGL.canvas;
       }
       if (this.canvas) {
         const rect = this.canvas.getBoundingClientRect();
@@ -307,7 +311,7 @@ export const keys = {
         let cy = button.clientY;
         let cx = button.clientX;
         if (!this.canvas) {
-          this.canvas = document.querySelector('canvas');
+          this.canvas = renderingState.displayGL.canvas;
         }
         if (this.canvas) {
           const rect = this.canvas.getBoundingClientRect();
@@ -315,11 +319,15 @@ export const keys = {
           cy = Math.floor(cy - rect.top) / rect.height;
         }
         if (this.mouse.x !== cx || this.mouse.y !== cy) {
+          if (!keys.ignoreMouseEvent){
           this.emitMouseMove(cx, cy);
+          }
         }
       } else if (typeof button.x === 'number' && typeof button.y === 'number') {
         if (this.mouse.x !== button.x || this.mouse.y !== button.y) {
+          if (!keys.ignoreMouseEvent){
           this.emitMouseMove(button.x, button.y);
+          }
         }
       }
       isDown = button.down === true ? true : button.down === false ? false : button.type && String(button.type).includes('up') ? false : true;
@@ -411,7 +419,7 @@ function handleKey(ev) {
 }
 
 export function initKeys() {
-    
+
   window.addEventListener('keydown', handleKey);
   window.addEventListener('keyup', handleKey);
 
@@ -421,7 +429,10 @@ export function initKeys() {
   window.addEventListener('mousedown', handleMouseButton);
   window.addEventListener('mouseup', handleMouseButton);
 
-  const handleMouseMove = (ev) => keys.emitMouseMove(ev);
+  const handleMouseMove = (ev) => {
+    if (keys.ignoreMouseEvent) return;
+    return keys.emitMouseMove(ev);
+  };
   window.addEventListener('mousemove', handleMouseMove);
 
   window['keys'] = keys;

@@ -10,7 +10,7 @@ export default function replacePath() {
     typeof value === 'function' &&
     !key.startsWith('_')
   ).forEach(([key, value]) => {
-      // console.log(`Replacing path.${key}(${(', ').repeat(value.length)})...`);
+      // console.log(`Replacing path.${key}({(', ').repeat(value.length)})...`);
       path[key] = function (...args) {
         try {
           const result = value.apply(path, args);
@@ -26,7 +26,7 @@ export default function replacePath() {
           } catch (err) {
             // ignore
           }
-          console.log(`Error executing path.${key}(${txt.substring(1, txt.length-1)}):`, err.message);
+          console.log(`Error executing path.${key}({txt.substring(1, txt.length-1)}):`, err.message);
           throw err;
         }
     }

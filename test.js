@@ -480,7 +480,7 @@ async function init() {
       }
 
       batch.render();
-      console.log('frame: render complete', 'totalVerts:', batch.spriteCount * 6);
+      // console.log('frame: render complete', 'totalVerts:', batch.spriteCount * 6);
       requestAnimationFrame(frame);
     }
     requestAnimationFrame(frame);

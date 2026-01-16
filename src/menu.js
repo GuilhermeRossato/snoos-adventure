@@ -1,6 +1,6 @@
-import {initState} from './init.js';
-import {renderingState} from './modules/rendering.js';
-import {initSprites, SpriteBatch} from './modules/sprites.js';
+import { initState } from './init.js';
+import { renderingState } from './modules/rendering.js';
+import { initSprites, SpriteBatch } from './modules/sprites.js';
 const menuState = {
   active: false,
   last: 0,
@@ -18,7 +18,7 @@ let spriteBatch;
 function initializeSpriteBatch(gl, canvas) {
   const maxSprites = 1000;
   // Example value
-  spriteBatch = new SpriteBatch(gl,canvas.width,canvas.height,maxSprites);
+  spriteBatch = new SpriteBatch(gl, canvas.width, canvas.height, maxSprites);
   console.log('SpriteBatch initialized:', spriteBatch);
 
   // Add a few sprites
@@ -37,7 +37,7 @@ function initializeSpriteBatch(gl, canvas) {
 }
 
 function renderLoop(time) {
-  debugger ;const dt = menuState.last ? (time - menuState.last) / 1000 : 0;
+  debugger; const dt = menuState.last ? (time - menuState.last) / 1000 : 0;
   console.log('renderLoop: dt:', dt);
   menuState.last = time;
   menuState.active = true;
@@ -45,7 +45,7 @@ function renderLoop(time) {
   gl.clear(gl.COLOR_BUFFER_BIT);
   const sampleBatches = [spriteBatch];
   // Example array of sprite batches
-  const sampleVelocitiesLists = [new Array(spriteBatch.spriteCount).fill(0).map( () => ({
+  const sampleVelocitiesLists = [new Array(spriteBatch.spriteCount).fill(0).map(() => ({
     x: Math.random() * 100 - 50,
     y: Math.random() * 100 - 50
   }))];

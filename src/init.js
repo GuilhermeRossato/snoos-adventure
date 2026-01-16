@@ -1,13 +1,13 @@
 import { b, bc, ib, ibc } from "../utils/bezier.js";
 import { drawHTML5 } from "../utils/drawHTML5.js";
 import { expoEase } from "../utils/expoEase.js";
-import { initMaps, loadMaps } from "./modules/maps.js";
-import { startGameMenu } from "./menu.js";
-import { initKeys } from "./modules/keys.js";
+import { loadMaps, mapsState } from "./modules/maps.js";
+import { initKeys, keys } from "./modules/keys.js";
 import { initRendering, renderingState } from "./modules/rendering.js";
 import { initTextures, loadTextures } from "./modules/textures.js";
 import { executeConcurrently } from "../utils/executeConcurrently.js";
 import { sleep } from "../utils/sleep.js";
+import { addBatch, initSpriteMouseHover, initSprites, render } from "./modules/sprites.js";
 
 const width = 480;
 const height = 480;
@@ -32,7 +32,9 @@ function setStatusText(text) {
   if (statusEl) {
     statusEl.textContent = text;
   }
-  console.log('%c\nStatus:', 'color: yellow; font-weight: bold;', text);
+  if (text) {
+    console.log('%c\nStatus:', 'color: yellow; font-weight: bold;', text);
+  }
 }
 
 async function init() {
@@ -53,7 +55,6 @@ async function init() {
   setStatusText('Initializing webgl / hooks...');
   const initialRecord = {
     keys: initKeys,
-    maps: initMaps,
     textures: initTextures,
     rendering: initRendering
   };
@@ -69,28 +70,41 @@ async function init() {
   canvas = ctx.canvas;
 
   setStatusText('Loading textures...');
-  
+
   await loadTextures();
-  
+
   setStatusText('Loading maps...');
   const maps = await loadMaps();
 
+  setStatusText('Loading maps...');
+  await initSprites(initState);
+
   console.log('init: maps loaded', 'count:', maps ? Object.keys(maps).length : 0);
-  await sleep(100);
+  await sleep(10);
 
   setStatusText('Loading menu...');
   initState.active = false;
-  let t = setInterval(() => {
-    if (!initState.done) {
-      return;
-    }
-    console.log('init: Logo finished...');
-    clearInterval(t);
-    t = null;
-  }, 100);
+  const timeToWait = Math.floor(initState.time < 1500 ? (1500 - initState.time) / 3 : 0);
+  console.log('init: waiting before starting menu', 'timeToWait(ms):', timeToWait);
+  await sleep(timeToWait);
+  canvas.style.pointerEvents = 'none';
+  canvas.style.opacity = '0';
+  const displayCanvas = renderingState.displayGL.canvas;
+  displayCanvas.style.pointerEvents = 'all';
+  displayCanvas.style.opacity = '1';
+  setStatusText('');
+  await startGame(renderingState.displayGL.canvas);
+
 }
 
-init().then(r => (r !== undefined) && console.log("init() return:", r)).catch(err => { console.log(err);  });
+async function startGame(canvasWebGL) {
+  addBatch(mapsState.maps["map-01"].createSprites());
+  initSpriteMouseHover();
+  requestAnimationFrame(render);
+}
+
+
+init().then(r => (r !== undefined) && console.log("init() return:", r)).catch(err => { console.log(err); });
 
 function showHtml5Logo(time) {
   if (!initState.start) {
@@ -109,13 +123,6 @@ function showHtml5Logo(time) {
   if (initState.time > 3600) {
     initState.time = 3600;
     initState.done = true;
-    try {
-      startGameMenu(time, renderingState.displayGL).catch(err => {
-        console.error('showHtml5Logo: startGameMenu failed', 'errMsg:', err && err.message);
-      });
-    } catch (err) {
-      console.error('showHtml5Logo: startGameMenu failed', 'errMsg:', err && err.message);
-    }
     return;
   }
   requestAnimationFrame(showHtml5Logo);

@@ -97,7 +97,7 @@ function augmentConsoleArgumentList(method, relativePath, args, stackList) {
             ? [1, 60 * 1_000, "m"]
             : [1, 60 * 60 * 1_000, "h"];
         const t = `${(d / m).toFixed(d % m === 0 ? 0 : n)} ${u}`;
-        parts.push(now < aux ? `(in ${t})` : `(${t} ago)`);
+        parts.push(now < aux ? `(in ${t})` : `({t} ago)`);
       }
       args[i] = parts.join(" ");
       continue;
