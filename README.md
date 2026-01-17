@@ -9,8 +9,8 @@ Snoo's Adventure is a platform game built using HTML5, JavaScript (ES2023), and 
   <img src="./assets/preview.gif" alt="Game Preview" />
 </div>
 
-# Development
+# Backend
 
-The backend script is "./backend/GameServer.cs" and can be compiled and executed with the script at "./backend/dev.bat" (the .Net compiler program must be installed).
+The backend is written in C# (.Net) and starts at `./backend/GameServer.cs` and can be compiled and executed with the script at `./backend/dev.bat` (the compiler program must be installed).
 
-Once executed, the GameServer handles HTTP requests by serving static files, redirecting requests, and responding with appropriate error messages when necessary. It starts an HTTP server on a specified or default port (9000), and depending on the request URL, it serves files such as HTML, images, or icons, redirects to specific locations, or returns error responses for invalid or missing resources. The server also sets appropriate HTTP headers for caching, content type, and redirection, ensuring proper handling of client requests.
+Once executed, it starts an HTTP server on a specified or default port (9000), and depending on the request URL, it serves files such as HTML, images, or icons, redirects to specific locations, or returns error responses for invalid or missing resources. The server also sets appropriate HTTP headers for caching, content type, and redirection, ensuring proper handling of client requests.

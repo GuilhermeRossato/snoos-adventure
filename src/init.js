@@ -93,11 +93,11 @@ async function init() {
   displayCanvas.style.pointerEvents = 'all';
   displayCanvas.style.opacity = '1';
   setStatusText('');
-  await startGame(renderingState.displayGL.canvas);
+  await startGame();
 
 }
 
-async function startGame(canvasWebGL) {
+async function startGame() {
   addBatch(mapsState.maps["map-01"].createSprites());
   initSpriteMouseHover();
   requestAnimationFrame(render);

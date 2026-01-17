@@ -86,7 +86,7 @@ export async function loadMap(path) {
       if (!sprite) {
         if (!logRec[hex]) {
           missingColors.set(hex, [x, y]);
-          console.log(`[loadMaps] No sprite mapped for color ${hex} at ({x},${y}): 3x3 color block around`);
+          console.log(`[loadMaps] No sprite mapped for color ${hex} at (${x},${y}): 3x3 color block around`);
           const rows = [];
           for (let dy = -1; dy <= 1; dy++) {
             let row = '';
@@ -129,7 +129,7 @@ export async function loadMap(path) {
   }
   await sleep(10);
   for (const [hex, [x, y]] of missingColors.entries()) {
-    console.log(`%c[loadMaps] Missing color at ({x},${y}): ${hex}`, `background-color: ${hex}; font-weight: bold;`);
+    console.log(`%c[loadMaps] Missing color at (${x},${y}): ${hex}`, `background-color: ${hex}; font-weight: bold;`);
   }
   ctx.putImageData(imageData, 0, 0);
   const spriteRecords = Object.fromEntries(spriteMap);
@@ -150,8 +150,15 @@ export async function loadMap(path) {
         batch.spriteCount = 0;
       }
       console.log('[loadMap.createSprites] Creating sprites from map data, total chunks:', spriteChunks.length);
+      
       for (const [tile, positions] of spriteMap.entries()) {
-        if (['player', 'enemy', 'exit'].includes(tile)) {
+        if (['player'].includes(tile)) {
+          this.px = positions[0].x;
+          this.py = positions[0].y;
+          console.log('[loadMap.createSprites] Player start position:', { x: this.px, y: this.py });
+          continue;
+        }
+        if (['enemy', 'exit'].includes(tile)) {
           continue;
         }
         const metadata = tileMetadata[tile];
