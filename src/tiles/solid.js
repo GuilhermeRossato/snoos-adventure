@@ -135,7 +135,7 @@ export function getTexturePosition(x, y, spritePosMap, spriteMetadata) {
       '11001110': { x: 2 * 16, y: 4 * 16 },
       '00010010': { x: 4 * 16, y: 1 * 16 },
       '11111001': { x: 3 * 16, y: 2 * 16 },
-      '01111000': { x: 3 * 16, y: 2 * 16 },
+      '01111000': { x: 1 * 16, y: 5 * 16 },
       '01111110': { x: 6 * 16, y: 4 * 16 },
     }
     if (known[n]) {
